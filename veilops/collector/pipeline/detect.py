@@ -58,7 +58,8 @@ class ThresholdDetector:
                                 s.source_tz, params={"value": round(s.value, 3), "threshold": limit,
                                                      "breaching": int(sum(st.window)),
                                                      "of": self.cfg.of_last},
-                                priority=True, raw_ids=[s.raw_id] if s.raw_id else [])]
+                                priority=True, raw_ids=[s.raw_id] if s.raw_id else [],
+                                entity_kind=s.entity_kind, template_id=rule.get("template", "T_THRESHOLD"))]
         if st.fired:
             st.healthy_streak = st.healthy_streak + 1 if healthy else 0
             if st.healthy_streak >= self.cfg.clear_after:
@@ -66,7 +67,9 @@ class ThresholdDetector:
                 st.window.clear()
                 return [LocalSignal("threshold", name + ".resolved", "info", s.entity, s.event_ts, s.source_tz,
                                     params={"value": round(s.value, 3), "threshold": limit,
-                                            "peak": round(st.peak, 3)})]
+                                            "peak": round(st.peak, 3)},
+                                    entity_kind=s.entity_kind,
+                                    template_id=rule.get("template", "T_THRESHOLD") + "_RESOLVED")]
         return []
 
 
@@ -135,7 +138,8 @@ class AuthDetector:
                            params={"count": count, "distinct_principals": len(set(principals)),
                                    "distinct_sources": len(set(sources))},
                            subjects=list(principals), sources=list(sources), risk_score=risk,
-                           priority=True, raw_ids=raw_ids[-50:])
+                           priority=True, raw_ids=raw_ids[-50:], entity_kind="host",
+                           template_id="T_" + rule.upper().replace(".", "_"))
 
 
 class LogCategoryDetector:
@@ -161,5 +165,6 @@ class LogCategoryDetector:
             sev = {"critical": "high", "error": "warning"}.get(e.level, "info")
             return [LocalSignal("log_category", f"log.{e.category}", sev, e.entity, e.event_ts, e.source_tz,
                                 params={"count": n}, window_s=self.window_s, priority=e.level == "critical",
-                                raw_ids=[e.raw_id] if e.raw_id else [])]
+                                raw_ids=[e.raw_id] if e.raw_id else [], entity_kind="host",
+                                template_id="T_LOG_CATEGORY")]
         return []

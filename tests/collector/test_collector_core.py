@@ -193,3 +193,22 @@ async def test_load_spike_does_not_breach_but_drift_does():
     peak = max(r["value"] for i in range(60) for r in sim.tick(T0 + timedelta(seconds=i))
                if r.get("metric") == "cpu" and r["host"] == "app-01")
     assert peak < 90                           # load-driven: rises but stays proportional
+
+
+def test_every_signal_carries_entity_kind_and_template():
+    """B needs entity_kind (pseudonym prefix) and template_id (numbers-only alert) on every LocalSignal."""
+    from veilops.collector.contracts import LogEvent
+    sigs = []
+    d = ThresholdDetector(Thresholds())
+    for i, v in enumerate([300, 300, 300] + [10] * 5):
+        sigs += d.observe(MetricSample("core-sw1", "link", "net.latency_ms", "ms", v, T0 + timedelta(seconds=i), "UTC"))
+    a = AuthDetector(AuthRules())
+    for i in range(10):
+        sigs += a.observe(auth(i))
+    sigs += LogCategoryDetector().observe(LogEvent("app-01", "db.connect_error", "error", T0, "UTC"))
+    assert [(s.rule, s.entity_kind, s.template_id) for s in sigs] == [
+        ("threshold.latency.high", "link", "T_LATENCY_HIGH"),
+        ("threshold.latency.high.resolved", "link", "T_LATENCY_HIGH_RESOLVED"),
+        ("auth.bruteforce", "host", "T_AUTH_BRUTEFORCE"),
+        ("log.db.connect_error", "host", "T_LOG_CATEGORY"),
+    ]

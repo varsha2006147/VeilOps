@@ -98,6 +98,8 @@ class LocalSignal:
     window_s: int = 0
     priority: bool = False
     raw_ids: list[int] = field(default_factory=list)
+    entity_kind: EntityKind = "host"   # host | service | link -> B picks the h_ / svc_ / lnk_ pseudonym prefix
+    template_id: str = ""              # numbers-only alert template for the wire AlertRecord (see CONTRACTS.md)
 
 
 @dataclass(slots=True)
