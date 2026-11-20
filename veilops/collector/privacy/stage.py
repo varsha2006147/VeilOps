@@ -117,7 +117,9 @@ class CloudLink:
                 verify_key_bytes=base64.b64decode(pub) if pub else None,
                 credentials=CollectorCredentials(creds["collector_id"], creds["collector_secret"].encode()),
             )
-        self.bridge = BusBridge(self.bus, RecordSerializer(policy, pseudo), self.ledger, sender=None)
+        self.serializer = RecordSerializer(policy, pseudo)
+        self.bridge = BusBridge(self.bus, self.serializer, self.ledger, sender=None)
+        self.status["topology"] = {"version_sent": None, "edges": 0, "sent_at": None, "error": None}
         self.heartbeats = HeartbeatBuilder(self.cfg.collector_id, self.cfg.tenant_id,
                                            config=self.cfg, policy_version=_policy_int(policy.version))
         self.ctx.cloud = self
@@ -148,6 +150,27 @@ class CloudLink:
                 self.status.update(online=False, last_error=self.sender.last_error or self.sender.last_status)
                 self._backlog_seen = True
                 await asyncio.sleep(compute_backoff_s(failures - 1, base_s=0.5, max_s=10.0))
+
+    async def topology_loop(self) -> None:
+        """Send the dependency graph (pseudonymised) at start and whenever the topology file changes.
+
+        The cloud replaces this collector's edges on each snapshot; incident correlation walks them.
+        """
+        from veilops.collector.privacy.serializer import SerializationError
+        while True:
+            self.bus.topology_changed.clear()   # clear first so a change during sending is not lost
+            topo = self.bus.topology
+            if topo.edges and topo.version != self.status["topology"]["version_sent"]:
+                try:
+                    record = self.serializer.serialize_topology(topo, datetime.now(timezone.utc))
+                    await self.ledger.enqueue([record], priority=True)
+                    self.status["topology"] = {"version_sent": topo.version, "edges": len(record.edges),
+                                               "sent_at": _now(), "error": None}
+                    log.info("topology v%s queued: %s edges", topo.version, len(record.edges))
+                except SerializationError as exc:
+                    self.status["topology"]["error"] = str(exc)   # field names/types only, never values
+                    log.warning("topology not sent: %s", exc)
+            await self.bus.topology_changed.wait()
 
     async def reconcile_all(self, last_acked: int) -> None:
         if last_acked < 1:
@@ -267,7 +290,8 @@ async def run_privacy_stage(cfg, bus, store, ctx, app) -> None:
     async def cloud_status() -> dict:
         return await link.snapshot()
 
-    tasks = [asyncio.create_task(link.bridge.run(), name="privacy:bridge")]
+    tasks = [asyncio.create_task(link.bridge.run(), name="privacy:bridge"),
+             asyncio.create_task(link.topology_loop(), name="privacy:topology")]
     if link.sender is not None:
         tasks += [asyncio.create_task(link.send_loop(), name="cloud:send"),
                   asyncio.create_task(link.heartbeat_loop(), name="cloud:heartbeat"),

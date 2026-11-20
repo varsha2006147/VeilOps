@@ -89,6 +89,28 @@ async def collector_detail(collector_id: str, request: Request):
     return {"collector": dict(row), "last_heartbeat": dict(hb) if hb else None}
 
 
+@router.get("/topology")
+async def topology(request: Request):
+    """Latest dependency graph per collector (pseudonymised entity ids only)."""
+    tenant = tenant_from_request(request)
+    async with request.app.state.db_pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
+            rows = await conn.fetch(
+                """SELECT collector_id,source_entity,target_entity,relation,updated_at
+                   FROM topology_edges WHERE tenant_id=$1
+                   ORDER BY collector_id,source_entity,target_entity""",
+                tenant,
+            )
+    nodes = sorted({r["source_entity"] for r in rows} | {r["target_entity"] for r in rows})
+    return {
+        "nodes": [{"id": n, "kind": {"h": "host", "svc": "service", "lnk": "link"}.get(n.split("_", 1)[0], "unknown")}
+                  for n in nodes],
+        "edges": [{"collector_id": r["collector_id"], "src": r["source_entity"], "dst": r["target_entity"],
+                   "rel": r["relation"], "updated_at": r["updated_at"]} for r in rows],
+    }
+
+
 @router.get("/entities/{entity}/metrics")
 async def entity_metrics(entity: str, request: Request,
                          since: datetime | None = None, limit: int = Query(200, ge=1, le=2000)):

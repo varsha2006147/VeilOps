@@ -19,11 +19,12 @@ from pydantic import ValidationError
 from veilops.collector.contracts import LocalSignal, WindowAgg
 from veilops.collector.privacy.pseudonymizer import PseudonymError, Pseudonymizer
 from veilops.schema.policy import Policy
-from veilops.schema.records import AlertRecord, MetricRecord, SecuritySummaryRecord
+from veilops.schema.records import AlertRecord, MetricRecord, SecuritySummaryRecord, TopologyRecord
 
 _PARAM_KEY_RE = re.compile(r"^[a-z_]{1,32}$")
 _SECURITY_COUNT_KEYS = ("count", "failures", "failure_count", "attempts")
 _MAX_LIST = 20
+_MAX_EDGES = 500
 # Collector (detect.py) rule names -> canonical schema categories. Canonical names pass through.
 _SECURITY_CATEGORY_MAP = {
     "auth.spray": "auth.password_spray",
@@ -191,3 +192,22 @@ class RecordSerializer:
         }
         record = self._build("security_summary", sources)
         return self._validate(SecuritySummaryRecord, "security_summary", record)
+
+    def serialize_topology(self, topo: Any, event_ts: datetime) -> TopologyRecord:
+        """Dependency graph with every node pseudonymised exactly like its metrics (same kind + key)."""
+        def edges() -> list:
+            out = []
+            for e in topo.edges:
+                for name, kind in ((e.src, e.src_kind), (e.dst, e.dst_kind)):
+                    self._kinds.setdefault(name, kind)  # alerts seen before metrics get the right prefix
+                out.append({"src": self._ps.pseudonymize(e.src_kind, e.src),
+                            "dst": self._ps.pseudonymize(e.dst_kind, e.dst), "rel": e.rel})
+            if len(out) > _MAX_EDGES:
+                raise ValueError("too many edges")
+            return out
+        sources: "dict[str, Callable[[], Any]]" = {
+            "edges": edges,
+            "event_ts": lambda: _ts("topology", event_ts),
+        }
+        record = self._build("topology", sources)
+        return self._validate(TopologyRecord, "topology", record)

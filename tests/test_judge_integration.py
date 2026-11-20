@@ -495,3 +495,24 @@ def test_redis_failures(client, monkeypatch):
     r, _, _ = send(client, 2, [metric(entity_id("rf"), "cpu.util_pct", now(), 1, 2)])
     assert r.status_code == 503 and r.json()["detail"]["code"] == "STREAM_UNAVAILABLE"
     assert _reconcile(client, 1, 2)["missing_sequences"] == [2]  # refused payload is visible as missing
+
+
+# ------------------------------------------------------------------ topology API
+
+def test_topology_api_is_collector_scoped_and_tenant_isolated(client):
+    svc, host = "svc_" + entity_id("checkout")[2:], entity_id("app-01")
+    record = {"type": "topology", "edges": [{"src": svc, "dst": host, "rel": "runs_on"}], "event_ts": iso(now())}
+    assert send(client, 1, [record])[0].status_code == 202
+
+    def edges():
+        return client.get("/api/v1/topology", headers=A()).json()["edges"]
+    got = wait_for(edges)
+    assert got[0]["src"] == svc and got[0]["dst"] == host and got[0]["collector_id"] == "col_a"
+    nodes = {n["id"]: n["kind"] for n in client.get("/api/v1/topology", headers=A()).json()["nodes"]}
+    assert nodes == {svc: "service", host: "host"}
+    # a new snapshot replaces this collector's edges instead of piling up
+    record["edges"] = [{"src": host, "dst": "lnk_" + entity_id("core")[2:], "rel": "connects_via"}]
+    record["event_ts"] = iso(now())
+    send(client, 2, [record])
+    wait_for(lambda: [e["rel"] for e in edges()] == ["connects_via"])
+    assert client.get("/api/v1/topology", headers=B()).json() == {"nodes": [], "edges": []}

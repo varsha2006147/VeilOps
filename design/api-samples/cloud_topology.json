@@ -1,0 +1,101 @@
+{
+  "request": "GET /api/v1/topology",
+  "note": "Dependency graph per collector. Node ids are the same pseudonyms as /fleet entities and metrics, so lanes/incidents can be joined to it.",
+  "response": {
+    "nodes": [
+      {
+        "id": "h_3fc9cf482e",
+        "kind": "host"
+      },
+      {
+        "id": "h_dcd117e448",
+        "kind": "host"
+      },
+      {
+        "id": "h_de37ae6b81",
+        "kind": "host"
+      },
+      {
+        "id": "lnk_3d0e24e39e",
+        "kind": "link"
+      },
+      {
+        "id": "lnk_84c24eda82",
+        "kind": "link"
+      },
+      {
+        "id": "svc_5952dabc2f",
+        "kind": "service"
+      },
+      {
+        "id": "svc_b058dfee44",
+        "kind": "service"
+      }
+    ],
+    "edges": [
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "h_3fc9cf482e",
+        "dst": "lnk_84c24eda82",
+        "rel": "connects_via",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "h_dcd117e448",
+        "dst": "lnk_84c24eda82",
+        "rel": "connects_via",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "h_de37ae6b81",
+        "dst": "lnk_84c24eda82",
+        "rel": "connects_via",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "lnk_84c24eda82",
+        "dst": "lnk_3d0e24e39e",
+        "rel": "connects_via",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "svc_5952dabc2f",
+        "dst": "h_3fc9cf482e",
+        "rel": "runs_on",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "svc_5952dabc2f",
+        "dst": "h_dcd117e448",
+        "rel": "depends_on",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "svc_5952dabc2f",
+        "dst": "h_de37ae6b81",
+        "rel": "runs_on",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "svc_b058dfee44",
+        "dst": "h_3fc9cf482e",
+        "rel": "runs_on",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      },
+      {
+        "collector_id": "col_4b84ca3441e445fc",
+        "src": "svc_b058dfee44",
+        "dst": "h_dcd117e448",
+        "rel": "depends_on",
+        "updated_at": "2026-11-20T18:53:47.372000+00:00"
+      }
+    ]
+  }
+}
