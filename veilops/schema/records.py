@@ -18,7 +18,7 @@ class MetricRecord(StrictModel):
     entity: EntityId
     entity_kind: EntityKind
     metric: MetricName
-    unit: Literal["pct", "ms", "mbps", "count", "bool"]
+    unit: Literal["pct", "ms", "mbps", "count", "bool", "rps"]
     avg: Num
     min: Num
     max: Num
