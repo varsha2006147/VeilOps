@@ -103,7 +103,8 @@ class CloudLink:
         policy = load_policy()
         pseudo = Pseudonymizer(load_or_create_key(self.data_dir / "pseudonym.key"),
                                PseudonymStore(self.data_dir / "pseudonyms.db"))
-        self.ctx.resolver = lambda p: (hit := pseudo.resolve(p)) and hit[1]
+        self.ctx.resolver = lambda p: (hit := pseudo.resolve(p)) and {"pseudo": p, "kind": hit[0], "real": hit[1]}
+        self.ctx.codes = lambda: [{"pseudo": c, "kind": k, "real": r} for c, k, r in pseudo.codes()]
         signer = EnvelopeSigner(load_or_create_signing_key(self.data_dir / "envelope_signing.key"))
         self.ledger = OutboxLedger(self.data_dir / "outbox.db", signer, config=self.cfg, policy=policy)
         await self.ledger.open()
@@ -245,7 +246,8 @@ class CloudLink:
         await self.client.post(url, content=body, headers=headers)
         self.status["actions"] = ([{"action_id": action["action_id"], "type": action["type"],
                                     "decision": wire["local_policy_decision"], "reason": reason,
-                                    "status": wire["status"], "steps": result.get("steps", [])}]
+                                    "status": wire["status"], "steps": result.get("steps", []), "at": _now(),
+                                    "health_before": wire.get("health_before"), "health_after": wire.get("health_after")}]
                                   + self.status["actions"])[:20]
         log.info("action %s %s -> %s", action["type"], action["action_id"], wire["status"])
 

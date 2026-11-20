@@ -22,6 +22,7 @@ class UIContext:
     def __init__(self, cfg, pipeline, store, sources: dict[str, Any]) -> None:
         self.cfg, self.pipeline, self.store, self.sources = cfg, pipeline, store, sources
         self.resolver: Callable[[str], dict | None] | None = None    # set by Member B
+        self.codes: Callable[[], list[dict]] | None = None
         self.topology_watcher = None
         self.ledger = None                                           # set by Member B
         self.proof_service = None                                    # set by Member B
@@ -41,7 +42,7 @@ def create_app(ctx: UIContext) -> FastAPI:
     from fastapi.middleware.cors import CORSMiddleware
     app.add_middleware(  # local dashboard dev server may read the egress ledger / trigger chaos
         CORSMiddleware,
-        allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()],
+        allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174").split(",") if o.strip()],
         allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
     page = (Path(__file__).parent / "index.html").read_text()
 
@@ -66,6 +67,10 @@ def create_app(ctx: UIContext) -> FastAPI:
         if reveal:
             await ctx.store.audit("local-admin", "raw.reveal", f"limit={limit} source={source} q={q}")
         return await ctx.store.recent(min(limit, 500), reveal, source or None, q or None)
+
+    @app.get("/local/audit")
+    async def local_audit(limit: int = 100) -> list[dict]:
+        return await ctx.store.recent_audit(min(limit, 500))
 
     @app.get("/local/signals")
     async def signals(limit: int = 100) -> list[dict]:
@@ -126,6 +131,11 @@ def create_app(ctx: UIContext) -> FastAPI:
             rec = (r.json() or [{}])[0]
         await ctx.store.audit("local-admin", "chaos.inject", f"{scenario} target={target}")
         return rec
+
+    @app.get("/local/codes")
+    async def codes() -> list[dict]:
+        """Real name -> code table. Served only on the customer's machine; never sent to the cloud."""
+        return ctx.codes() if ctx.codes else []
 
     @app.get("/local/resolve/{pseudo}")
     async def resolve(pseudo: str) -> dict:
