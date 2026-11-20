@@ -32,7 +32,10 @@ async def ingest(request: Request):
     except ValidationError as exc:
         message = str(exc)
         code = "UNKNOWN_RECORD_TYPE" if "UNKNOWN_RECORD_TYPE" in message else "SCHEMA_VIOLATION"
-        raise HTTPException(422, detail={"code": code, "errors": exc.errors(include_input=False)}) from exc
+        # include_context=False: validator errors carry exception objects that are not JSON
+        # serialisable and would turn a 422 into a 500.
+        raise HTTPException(422, detail={"code": code, "errors": exc.errors(
+            include_input=False, include_context=False, include_url=False)}) from exc
 
     if envelope.collector_id != auth.collector_id:
         raise HTTPException(403, detail={"code": "TENANT_MISMATCH"})
