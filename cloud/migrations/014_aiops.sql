@@ -1,4 +1,4 @@
--- Migration 013: Cloud AIOps correlation, anomaly detection, root cause, and recommendations.
+-- Migration 014: Cloud AIOps correlation, anomaly detection, root cause, and recommendations.
 -- RLS enforcement and index optimization for AIOps engine.
 
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS root_cause_entity TEXT;

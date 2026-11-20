@@ -320,7 +320,8 @@ async def recommendation_detail(recommendation_id: UUID, request: Request):
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
             row = await conn.fetchrow(
-                """SELECT recommendation_id,incident_id,title,rationale,confidence,status,evidence,created_at
+                """SELECT recommendation_id,incident_id,title,rationale,confidence,status,evidence,created_at,
+                          action_type,target_entity
                    FROM recommendations WHERE tenant_id=$1 AND recommendation_id=$2""",
                 tenant, recommendation_id,
             )
