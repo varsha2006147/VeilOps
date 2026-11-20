@@ -29,3 +29,22 @@ pytest -q
 ```
 Use the organizer stream instead: `STREAM_ENABLED=true STREAM_DRIVER=sse STREAM_URL=<url> python -m veilops.collector`
 (edit only `veilops/collector/stream_map.yaml` to map their field names).
+
+## Run the collector in Docker
+
+```bash
+docker build -f deploy/Dockerfile.collector -t veilops-collector .
+docker compose -f deploy/collector.compose.yml up --build   # acme :8100 (IN), globex :8101 (EU), sim :9000
+```
+At the event: `STREAM_URL=<organizer feed> docker compose -f deploy/collector.compose.yml up`.
+The image contains only `veilops/collector`, `veilops/schema` and `veilops/sim` — no cloud code ships to customers.
+
+## Safe-remediation sandbox (demo)
+
+```bash
+python -m veilops.sandbox --port 9100                    # tiny service remediation can really act on
+curl -X POST localhost:9100/chaos/runaway                # real CPU runaway -> collector raises threshold.cpu.high
+```
+`veilops/collector/remediation.py` → `SandboxExecutor.run_safe(action)`: snapshot → dry-run → execute → verify (health
+must improve) → auto-rollback. B's action poller calls it after signature, expiry and local-veto checks.
+In Docker the acme collector already watches the sandbox (`extra_streams`) and the Chaos tab forwards to the sim server.

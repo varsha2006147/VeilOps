@@ -1,13 +1,14 @@
 # VeilOps collector config (Member A owns sources/windows; Member B owns transport/policy keys)
-collector_id: col_blr_01
-tenant_id: t_acme
-region: in
-environment: blr-dc1
-source_tz: Asia/Kolkata
+collector_id: ${COLLECTOR_ID:-col_blr_01}
+tenant_id: ${TENANT_ID:-t_acme}
+region: ${REGION:-in}
+environment: ${ENVIRONMENT:-blr-dc1}
+source_tz: ${SOURCE_TZ:-Asia/Kolkata}
 ingest_url: ${INGEST_URL:-https://in.ingest.veilops.local/v1}
-db_path: data/collector_acme.db
-demo_mode: true
-downstream: none            # set to "privacy" once Member B's stage is merged
+db_path: ${DB_PATH:-data/collector_acme.db}
+demo_mode: ${DEMO_MODE_CFG:-true}
+downstream: ${DOWNSTREAM:-none}   # "privacy" once Member B's stage is merged
+topology_file: ${TOPOLOGY_FILE:-veilops/collector/topology.example.yaml}
 
 sources:
   stream:                   # ORGANIZER STREAM - switch driver/url at the event
@@ -16,9 +17,15 @@ sources:
     url: ${STREAM_URL:-http://localhost:9000/stream}
     path: ${STREAM_PATH:-data/stream.jsonl}
     map_file: veilops/collector/stream_map.yaml
-    tenant_filter: t_acme
+    tenant_filter: ${TENANT_ID:-t_acme}
+  extra_streams:            # more feeds; the remediation sandbox exposes its live metrics here
+    - name: sandbox
+      enabled: ${SANDBOX_ENABLED:-false}
+      driver: http_poll
+      url: ${SANDBOX_URL:-http://localhost:9100}/metrics
+      interval_s: 1
   sim:                      # SIMULATED (team) - rehearsal + Chaos tab
-    enabled: true
+    enabled: ${SIM_ENABLED:-true}
     interval_s: 1
   host:
     enabled: true
@@ -32,7 +39,7 @@ sources:
       - { name: api-gw, host: 8.8.8.8, port: 53 }
   syslog:
     enabled: true
-    udp_port: 5514
+    udp_port: ${SYSLOG_PORT:-5514}
     files: [/var/log/auth.log]
 
 windows:

@@ -98,6 +98,8 @@ class LocalSignal:
     window_s: int = 0
     priority: bool = False
     raw_ids: list[int] = field(default_factory=list)
+    entity_kind: EntityKind = "host"   # host | service | link -> B picks the h_ / svc_ / lnk_ pseudonym prefix
+    template_id: str = ""              # numbers-only alert template for the wire AlertRecord (see CONTRACTS.md)
 
 
 @dataclass(slots=True)
@@ -115,3 +117,8 @@ class SourceBus:
         self.windows: asyncio.Queue[WindowAgg] = asyncio.Queue(maxsize)
         self.signals: asyncio.Queue[LocalSignal] = asyncio.Queue(maxsize)
         self.status: dict[str, SourceStatus] = {}
+        # Dependency graph with REAL names (A loads it; B pseudonymizes and sends a `topology` record).
+        # B: wait on `topology_changed`, clear it, then send `self.topology` (version bumps on every change).
+        from .topology import Topology
+        self.topology: Topology = Topology()
+        self.topology_changed: asyncio.Event = asyncio.Event()

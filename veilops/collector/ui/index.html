@@ -34,7 +34,7 @@
 <nav id="tabs">
   <button data-t="overview" class="on">Overview</button><button data-t="raw">Raw (local only)</button>
   <button data-t="signals">Local detections</button><button data-t="windows">Aggregates</button>
-  <button data-t="chaos">Chaos</button><button data-t="egress">Egress proof ↗</button>
+  <button data-t="topology">Topology</button><button data-t="chaos">Chaos</button><button data-t="egress">Egress proof ↗</button>
 </nav>
 <main>
   <section id="overview"><div class="grid" id="kpis"></div><h3>Sources</h3><table id="srcs"></table></section>
@@ -47,6 +47,8 @@
   </section>
   <section id="signals" class="hide"><table><thead><tr><th>event time (UTC)</th><th>rule</th><th>severity</th><th>entity (local name)</th><th>params</th><th>risk</th><th>priority</th></tr></thead><tbody id="sigb"></tbody></table></section>
   <section id="windows" class="hide"><table><thead><tr><th>window (UTC)</th><th>entity</th><th>metric</th><th>avg</th><th>min</th><th>max</th><th>p95</th><th>n</th></tr></thead><tbody id="winb"></tbody></table></section>
+  <section id="topology" class="hide"><p class="note" id="topnote"></p>
+    <table><thead><tr><th>from</th><th>relation</th><th>to</th></tr></thead><tbody id="topb"></tbody></table></section>
   <section id="chaos" class="hide"><p class="note" id="chaosnote"></p><div class="row" id="chaosbtns"></div>
     <table><thead><tr><th>scenario</th><th>injected at (UTC)</th><th>target</th><th>duration</th></tr></thead><tbody id="injb"></tbody></table></section>
   <section id="egress" class="hide"><p class="note">The Egress Proof Panel is served at <a href="/egress" style="color:var(--acc)">/egress</a> by the privacy &amp; transport module.</p></section>
@@ -90,8 +92,13 @@ async function chaos() {
   if (!$('#chaosbtns').childElementCount) $('#chaosbtns').innerHTML = c.scenarios.map(s => `<button class="btn" ${c.enabled ? '' : 'disabled'} onclick="inject('${s}')">${s}</button>`).join('');
   $('#injb').innerHTML = c.injections.slice().reverse().map(i => `<tr><td>${esc(i.scenario)}</td><td class="mono">${esc(i.injected_at)}</td><td>${esc(i.target || 'default')}</td><td>${i.duration_s}s</td></tr>`).join('');
 }
+async function topology() {
+  const t = await j('/local/topology');
+  $('#topnote').textContent = `version ${t.version} · ${t.digest || 'no graph'} · source ${t.source} · ${t.nodes.length} nodes, ${t.edges.length} edges` + (t.last_error ? ` · last file error: ${t.last_error}` : '') + ' · real names shown here; pseudonymized before egress';
+  $('#topb').innerHTML = t.edges.map(e => `<tr><td>${esc(e.src_kind)}:${esc(e.src)}</td><td>${esc(e.rel)}</td><td>${esc(e.dst_kind)}:${esc(e.dst)}</td></tr>`).join('');
+}
 async function inject(s) { await fetch('/local/chaos/' + s, {method: 'POST'}); chaos(); }
-const views = {overview, raw, signals, windows, chaos, egress: async () => {}};
+const views = {overview, raw, signals, windows, topology, chaos, egress: async () => {}};
 async function refresh() { try { await views[tab](); } catch (e) { console.warn(e); } }
 $('#reveal').onchange = refresh; $('#rawsrc').onchange = refresh; $('#rawq').oninput = refresh;
 refresh(); setInterval(refresh, 1500);

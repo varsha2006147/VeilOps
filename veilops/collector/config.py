@@ -91,5 +91,5 @@ class CollectorConfig:
         if auth:
             cfg.auth = AuthRules(**auth)
         cfg.demo_mode = cfg.demo_mode or os.environ.get("DEMO_MODE") == "1"
-        cfg.config_hash = "sha256:" + hashlib.sha256(text.encode()).hexdigest()[:16]
+        cfg.config_hash = "sha256:" + hashlib.sha256(text.encode()).hexdigest()   # full 64 hex: schema Sha256Hash
         return cfg
