@@ -4,6 +4,9 @@
 # acme UI  -> http://localhost:8100   (tenant t_acme, region in)
 # globex UI-> http://localhost:8101   (tenant t_globex, region eu)
 # At the event: set STREAM_URL to the organizer feed and SIM_ENABLED=false.
+# Cloud link: set INGEST_URL_IN to the cloud (e.g. http://host.docker.internal:8000/v1) and pass a one-time
+# token from `python -m cloud.scripts.create_enrollment_token --tenant t_acme --region in` as
+# ENROLL_TOKEN_ACME. Credentials are then kept in the collector's /data volume.
 x-collector: &collector
   build: { context: .., dockerfile: deploy/Dockerfile.collector }
   image: veilops-collector:dev
@@ -39,6 +42,7 @@ services:
       STREAM_URL: ${STREAM_URL:-http://sim:9000/stream}
       SIM_ENABLED: "false"
       INGEST_URL: ${INGEST_URL_IN:-https://in.ingest.veilops.local/v1}
+      VEILOPS_ENROLLMENT_TOKEN: ${ENROLL_TOKEN_ACME:-}
       DEMO_MODE: "1"
       SIM_CONTROL_URL: http://sim:9000
       SANDBOX_ENABLED: "true"

@@ -7,7 +7,7 @@ source_tz: ${SOURCE_TZ:-Asia/Kolkata}
 ingest_url: ${INGEST_URL:-https://in.ingest.veilops.local/v1}
 db_path: ${DB_PATH:-data/collector_acme.db}
 demo_mode: ${DEMO_MODE_CFG:-true}
-downstream: ${DOWNSTREAM:-none}   # "privacy" once Member B's stage is merged
+downstream: ${DOWNSTREAM:-privacy}   # privacy -> outbox -> cloud; set VEILOPS_ENROLLMENT_TOKEN once to enroll
 topology_file: ${TOPOLOGY_FILE:-veilops/collector/topology.example.yaml}
 
 sources:
