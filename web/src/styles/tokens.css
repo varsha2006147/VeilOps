@@ -1,0 +1,21 @@
+:root {
+  color-scheme: dark;
+  --bg: #0B0C0E;
+  --bg-2: #0D0E10;
+  --hover: #17181B;
+  --line: #1B1C20;
+  --line-2: #23252A;
+  --line-3: #2A2B30;
+  --text: #E2E4E7;
+  --text-hi: #F2F3F5;
+  --text-2: #B9BCC2;
+  --text-3: #9C9FA5;
+  --muted: #6B6F76;
+  --muted-2: #4E5157;
+  --red: #EB5757;
+  --red-line: #3A2326;
+  --red-bg: rgba(235,87,87,.04);
+  --yellow: #F2C94C;
+  --font-ui: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
