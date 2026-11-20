@@ -20,6 +20,11 @@ _SHORT = {"cpu.util_pct": "cpu.high", "mem.util_pct": "mem.high", "disk.util_pct
           "net.reachable": "net.unreachable"}
 
 
+def _alert_sev(sev: str) -> str:
+    """Wire AlertRecord severity is info|warning|critical (cloud contract); "high" is security-only."""
+    return "critical" if sev == "high" else sev
+
+
 @dataclass
 class _TState:
     window: deque = field(default_factory=lambda: deque(maxlen=5))
@@ -54,7 +59,7 @@ class ThresholdDetector:
                 st.peak = min(st.peak, s.value) if below else max(st.peak, s.value)
         if not st.fired and sum(st.window) >= self.cfg.persistence:
             st.fired, st.healthy_streak = True, 0
-            return [LocalSignal("threshold", name, rule.get("severity", "warning"), s.entity, s.event_ts,
+            return [LocalSignal("threshold", name, _alert_sev(rule.get("severity", "warning")), s.entity, s.event_ts,
                                 s.source_tz, params={"value": round(s.value, 3), "threshold": limit,
                                                      "breaching": int(sum(st.window)),
                                                      "of": self.cfg.of_last},
@@ -162,7 +167,7 @@ class LogCategoryDetector:
             last = 0
         if last == 0 or n >= 2 * last:
             self.emitted[key] = n
-            sev = {"critical": "high", "error": "warning"}.get(e.level, "info")
+            sev = {"critical": "critical", "error": "warning"}.get(e.level, "info")
             return [LocalSignal("log_category", f"log.{e.category}", sev, e.entity, e.event_ts, e.source_tz,
                                 params={"count": n}, window_s=self.window_s, priority=e.level == "critical",
                                 raw_ids=[e.raw_id] if e.raw_id else [], entity_kind="host",
