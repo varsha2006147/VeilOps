@@ -19,6 +19,13 @@ services:
     networks: [stream]
     ports: ["9000:9000"]
 
+  sandbox:                     # remediation target for the safe-action demo (acme only)
+    image: veilops-collector:dev
+    pull_policy: never
+    command: ["python", "-m", "veilops.sandbox", "--port", "9100", "--tenant", "t_acme"]
+    networks: [customer-acme]
+    ports: ["9100:9100"]
+
   collector-acme:
     <<: *collector
     environment:
@@ -33,10 +40,13 @@ services:
       SIM_ENABLED: "false"
       INGEST_URL: ${INGEST_URL_IN:-https://in.ingest.veilops.local/v1}
       DEMO_MODE: "1"
+      SIM_CONTROL_URL: http://sim:9000
+      SANDBOX_ENABLED: "true"
+      SANDBOX_URL: http://sandbox:9100
     volumes: [acme-data:/data]
     ports: ["8100:8100", "5514:5514/udp"]
     networks: [stream, customer-acme]
-    depends_on: [sim]
+    depends_on: [sim, sandbox]
 
   collector-globex:
     <<: *collector
@@ -52,6 +62,7 @@ services:
       SIM_ENABLED: "false"
       INGEST_URL: ${INGEST_URL_EU:-https://eu.ingest.veilops.local/v1}
       DEMO_MODE: "1"
+      SIM_CONTROL_URL: http://sim:9000
     volumes: [globex-data:/data]
     ports: ["8101:8100", "5515:5514/udp"]
     networks: [stream, customer-globex]

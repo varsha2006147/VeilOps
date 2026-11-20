@@ -9,6 +9,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable
 
+import os
+
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
@@ -74,22 +77,45 @@ def create_app(ctx: UIContext) -> FastAPI:
                            "rel": e.rel} for e in t.edges],
                 "last_error": w.last_error if w else None}
 
+    def _remote() -> str | None:
+        """Docker mode: no in-process sim, so forward to the shared sim server (SIM_CONTROL_URL)."""
+        return (os.environ.get("SIM_CONTROL_URL") or "").rstrip("/") or None
+
     @app.get("/local/chaos")
     async def chaos_list() -> dict:
         from veilops.sim import SCENARIOS
-        sim = ctx.sources.get("sim")
-        return {"enabled": bool(ctx.cfg.demo_mode and sim), "scenarios": list(SCENARIOS),
-                "injections": sim.sim.injections if sim else []}
+        sim, remote = ctx.sources.get("sim"), _remote()
+        injections: list = sim.sim.injections if sim else []
+        if not sim and remote:
+            try:
+                async with httpx.AsyncClient(timeout=3) as c:
+                    injections = (await c.get(f"{remote}/injections")).json().get(ctx.cfg.tenant_id, [])
+            except (httpx.HTTPError, ValueError):
+                injections = []
+        return {"enabled": bool(ctx.cfg.demo_mode and (sim or remote)), "scenarios": list(SCENARIOS),
+                "mode": "local" if sim else ("remote" if remote else "off"), "injections": injections}
 
     @app.post("/local/chaos/{scenario}")
     async def chaos(scenario: str, target: str | None = None) -> dict:
-        sim = ctx.sources.get("sim")
-        if not ctx.cfg.demo_mode or sim is None:
-            raise HTTPException(403, "chaos disabled (set DEMO_MODE=1 and enable the sim source)")
-        try:
-            rec = sim.inject(scenario, target)
-        except ValueError as e:
-            raise HTTPException(404, str(e)) from e
+        sim, remote = ctx.sources.get("sim"), _remote()
+        if not ctx.cfg.demo_mode or not (sim or remote):
+            raise HTTPException(403, "chaos disabled (set DEMO_MODE=1 and enable the sim source or SIM_CONTROL_URL)")
+        if sim:
+            try:
+                rec = sim.inject(scenario, target)
+            except ValueError as e:
+                raise HTTPException(404, str(e)) from e
+        else:
+            params = {"tenant": ctx.cfg.tenant_id, **({"target": target} if target else {})}
+            try:
+                async with httpx.AsyncClient(timeout=5) as c:
+                    r = await c.post(f"{remote}/inject/{scenario}", params=params)
+            except httpx.HTTPError as e:
+                raise HTTPException(502, f"sim server unreachable: {e}") from e
+            if r.status_code == 404:
+                raise HTTPException(404, r.json().get("detail", "unknown scenario"))
+            r.raise_for_status()
+            rec = (r.json() or [{}])[0]
         await ctx.store.audit("local-admin", "chaos.inject", f"{scenario} target={target}")
         return rec
 
