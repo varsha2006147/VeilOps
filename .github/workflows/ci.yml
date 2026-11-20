@@ -1,0 +1,92 @@
+# VeilOps CI: every PR into main must pass these before it can merge (enable branch protection on `main`).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No UTF-8 BOM in tracked text files
+        run: |
+          bad=$(git ls-files -z | xargs -0 -I{} sh -c 'head -c3 "{}" 2>/dev/null | od -An -tx1 | grep -q "ef bb bf" && echo "{}"' || true)
+          if [ -n "$bad" ]; then echo "::error::UTF-8 BOM found (save as UTF-8 without BOM):"; echo "$bad"; exit 1; fi
+      - name: Required collector dependencies are still in requirements.txt
+        run: |
+          for dep in psutil icmplib websockets pydantic fastapi aiosqlite httpx pyyaml; do
+            grep -qi "^${dep}" requirements.txt || { echo "::error::requirements.txt is missing ${dep}"; exit 1; }
+          done
+      - name: No secrets or local data committed
+        run: |
+          if git ls-files | grep -E '\.(db|db-wal|db-shm|key|pem)$|(^|/)\.env$|(^|/)node_modules/'; then
+            echo "::error::local data, keys or node_modules are committed"; exit 1; fi
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # The full test suite imports both collector and Cloud Core modules.
+      - name: Install collector and Cloud Core dependencies
+        run: python -m pip install -r requirements.txt -r cloud/requirements.txt
+      - name: pytest
+        run: python -m pytest -q
+      - name: Collector, simulator and sandbox start (import smoke test)
+        run: python -c "import veilops.collector.__main__, veilops.sim.__main__, veilops.schema; print('ok')"
+
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose file is valid
+        run: docker compose -f deploy/collector.compose.yml config -q
+      - name: Build collector image
+        run: docker build -f deploy/Dockerfile.collector -t veilops-collector:ci .
+      - name: Image contains no cloud code
+        run: |
+          if docker run --rm veilops-collector:ci python -c "import veilops.cloud" 2>/dev/null; then
+            echo "::error::cloud code shipped inside the customer-side collector image"; exit 1; fi
+      - name: Collector boots and answers its health check
+        run: |
+          docker run -d --name col -p 8100:8100 -e DEMO_MODE=1 veilops-collector:ci
+          for i in $(seq 1 30); do curl -fs localhost:8100/local/status >/dev/null && break; sleep 1; done
+          curl -fs localhost:8100/local/status | python3 -m json.tool | head -20
+          docker logs col | tail -20
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect frontend
+        id: detect
+        run: echo "present=$([ -f cloud/package.json ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'yes'
+        with:
+          node-version: "20"
+      - name: Build frontend
+        if: steps.detect.outputs.present == 'yes'
+        working-directory: cloud
+        run: |
+          npm ci || npm install
+          npm run build
+      - name: No frontend yet
+        if: steps.detect.outputs.present != 'yes'
+        run: echo "cloud/package.json not on this branch - skipping"

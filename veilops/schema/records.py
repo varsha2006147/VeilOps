@@ -31,8 +31,13 @@ class MetricRecord(StrictModel):
 
 class SecuritySummaryRecord(StrictModel):
     type: Literal["security_summary"]
-    category: Literal["auth.bruteforce", "auth.password_spray",
-                      "auth.credential_stuffing"]
+    category: Literal[
+        "auth.bruteforce",
+        "auth.password_spray",
+        "auth.spray",
+        "auth.credential_stuffing",
+        "auth.stuffing",
+    ]
     severity: Severity
     count: int = Field(ge=0)
     distinct_principals: int = Field(ge=0)
@@ -76,7 +81,7 @@ class HealthRecord(StrictModel):
 class TopologyEdge(StrictModel):
     src: EntityId
     dst: EntityId
-    rel: Literal["runs_on", "depends_on", "routes_via"]
+    rel: Literal["runs_on", "depends_on", "routes_via", "connects_via"]
 
 
 class TopologyRecord(StrictModel):
