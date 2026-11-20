@@ -1,8 +1,10 @@
 """Collector/cloud sequence reconciliation API (Architecture §§13, 17)."""
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from cloud.app.judge import run_reconciliation
 from cloud.app.security import authenticate_collector
 
 router = APIRouter(prefix="/v1", tags=["reconciliation"])
@@ -26,25 +28,14 @@ async def reconcile(request: Request, collector_id: str,
             await conn.execute(
                 "SELECT set_config('app.tenant_id',$1,true)", collector["tenant_id"]
             )
-            rows = await conn.fetch(
-                """SELECT seq FROM ingest_receipts
-                   WHERE tenant_id=$1 AND collector_id=$2 AND seq BETWEEN $3 AND $4
-                   ORDER BY seq""",
-                collector["tenant_id"], collector_id, from_seq, to_seq,
-            )
-            received = {row["seq"] for row in rows}
-            missing = [seq for seq in range(from_seq, to_seq + 1) if seq not in received]
-            await conn.execute(
-                """INSERT INTO slo_samples
-                   (tenant_id,kind,sample_key,event_ts,observed_ts,delay_ms)
-                   VALUES($1,'reconciliation_missing_sequences',$2,$3,$3,$4)
-                   ON CONFLICT DO NOTHING""",
-                collector["tenant_id"], f"{collector_id}:{from_seq}:{to_seq}",
-                observed, len(missing),
+            result = await run_reconciliation(
+                conn, collector["tenant_id"], collector_id, from_seq, to_seq, uuid4(), observed,
             )
     return {
         "collector_id": collector_id, "tenant_id": collector["tenant_id"],
         "from_seq": from_seq, "to_seq": to_seq,
-        "received_count": len(received), "missing_sequences": missing,
-        "reconciled": not missing,
+        "run_id": result["run_id"],
+        "received_count": len(result["received"]), "missing_sequences": result["missing"],
+        "duplicates_rejected": result["duplicates_rejected"],
+        "reconciled": not result["missing"],
     }
