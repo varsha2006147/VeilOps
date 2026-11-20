@@ -74,9 +74,9 @@ B's schema enums must accept exactly these strings. Units on the wire: `pct`, `m
 | `threshold.cpu.high.resolved` | threshold | `T_CPU_HIGH_RESOLVED` | info | no | value, threshold, peak |
 | `threshold.mem.high` | threshold | `T_MEM_HIGH` | warning | yes | value, threshold, breaching, of |
 | `threshold.mem.high.resolved` | threshold | `T_MEM_HIGH_RESOLVED` | info | no | value, threshold, peak |
-| `threshold.disk.high` | threshold | `T_DISK_HIGH` | high | yes | value, threshold, breaching, of |
+| `threshold.disk.high` | threshold | `T_DISK_HIGH` | critical | yes | value, threshold, breaching, of |
 | `threshold.disk.high.resolved` | threshold | `T_DISK_HIGH_RESOLVED` | info | no | value, threshold, peak |
-| `threshold.loss.high` | threshold | `T_LOSS_HIGH` | high | yes | value, threshold, breaching, of |
+| `threshold.loss.high` | threshold | `T_LOSS_HIGH` | critical | yes | value, threshold, breaching, of |
 | `threshold.loss.high.resolved` | threshold | `T_LOSS_HIGH_RESOLVED` | info | no | value, threshold, peak |
 | `threshold.latency.high` | threshold | `T_LATENCY_HIGH` | warning | yes | value, threshold, breaching, of |
 | `threshold.latency.high.resolved` | threshold | `T_LATENCY_HIGH_RESOLVED` | info | no | value, threshold, peak |
@@ -87,16 +87,16 @@ B's schema enums must accept exactly these strings. Units on the wire: `pct`, `m
 | `auth.bruteforce` | security | `T_AUTH_BRUTEFORCE` | high or critical (risk>=90) | yes | count, distinct_principals, distinct_sources (+ risk_score, window_s=60, subjects, sources) |
 | `auth.spray` | security | `T_AUTH_SPRAY` | high or critical (risk>=90) | yes | count, distinct_principals, distinct_sources (+ risk_score, window_s=60, subjects, sources) |
 | `auth.stuffing` | security | `T_AUTH_STUFFING` | critical | yes | count, distinct_principals, distinct_sources (+ risk_score, window_s=60, subjects, sources) |
-| `log.db.connect_error` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.sys.oom` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.sys.disk_full` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.app.timeout` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.net.conn_refused` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.app.http_5xx` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.app.crash` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.sec.tls_error` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.sec.access_denied` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
-| `log.app.error` | log_category | `T_LOG_CATEGORY` | warning (error) / high (critical) / info | only if level critical | count (window_s=60) |
+| `log.db.connect_error` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.sys.oom` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.sys.disk_full` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.app.timeout` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.net.conn_refused` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.app.http_5xx` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.app.crash` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.sec.tls_error` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.sec.access_denied` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
+| `log.app.error` | log_category | `T_LOG_CATEGORY` | warning (error) / critical (critical) / info | only if level critical | count (window_s=60) |
 
 Severities: `info`, `warning`, `high`, `critical`. Entity kinds: `host`, `service`, `link`.
 
