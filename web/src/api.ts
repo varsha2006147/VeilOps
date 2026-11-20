@@ -1,7 +1,7 @@
 // Cloud API (JWT; tenant comes only from the token) and the collector's local API (customer side).
 export const CLOUD = import.meta.env.VITE_CLOUD_URL ?? "http://localhost:8000";
 export const COLLECTOR = import.meta.env.VITE_COLLECTOR_URL ?? "http://localhost:8100";
-export const APP = (import.meta.env.VITE_APP ?? "cloud") as "cloud" | "site";
+export const APP = (import.meta.env.VITE_APP ?? (import.meta.env.MODE === "site" ? "site" : "cloud")) as "cloud" | "site";
 const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD ?? "veilops-demo-1";
 
 export type User = { id: string; name: string; tenant_id: string; role: string };
