@@ -212,3 +212,11 @@ def test_every_signal_carries_entity_kind_and_template():
         ("auth.bruteforce", "host", "T_AUTH_BRUTEFORCE"),
         ("log.db.connect_error", "host", "T_LOG_CATEGORY"),
     ]
+
+
+def test_config_hash_is_full_sha256():
+    """Heartbeat.config_hash in B's schema requires ^sha256:[0-9a-f]{64}$."""
+    import re
+    from veilops.collector.config import CollectorConfig
+    h = CollectorConfig.load("veilops/collector/collector.example.yaml").config_hash
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", h)
