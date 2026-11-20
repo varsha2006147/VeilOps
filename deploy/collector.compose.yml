@@ -7,12 +7,14 @@
 x-collector: &collector
   build: { context: .., dockerfile: deploy/Dockerfile.collector }
   image: veilops-collector:dev
+  pull_policy: build
   restart: unless-stopped
   sysctls: { net.ipv4.ping_group_range: "0 2147483647" }   # unprivileged ICMP for latency/loss probes
 
 services:
   sim:
     image: veilops-collector:dev
+    pull_policy: never          # built locally by the collector services; never pull from Docker Hub
     command: ["python", "-m", "veilops.sim", "serve", "--port", "9000", "--tenants", "t_acme,t_globex"]
     networks: [stream]
     ports: ["9000:9000"]

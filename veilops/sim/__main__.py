@@ -41,11 +41,12 @@ def serve(sims: dict[str, Simulator], port: int) -> None:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import StreamingResponse
 
-    app = FastAPI(title="veilops-sim")
+    from contextlib import asynccontextmanager
+
     subscribers: set[asyncio.Queue] = set()
 
-    @app.on_event("startup")
-    async def _start() -> None:
+    @asynccontextmanager
+    async def lifespan(_app):
         async def pump() -> None:
             while True:
                 now = datetime.now(timezone.utc)
@@ -55,7 +56,11 @@ def serve(sims: dict[str, Simulator], port: int) -> None:
                         if not q.full():
                             q.put_nowait(r)
                 await asyncio.sleep(1.0)
-        asyncio.create_task(pump())
+        task = asyncio.create_task(pump())
+        yield
+        task.cancel()
+
+    app = FastAPI(title="veilops-sim", lifespan=lifespan)
 
     @app.get("/stream")
     async def stream():
