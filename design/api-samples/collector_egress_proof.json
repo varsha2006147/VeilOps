@@ -1,0 +1,60 @@
+{
+  "request": "GET http://localhost:8100/api/egress-proof",
+  "note": "collector-local ledger: seq, hash chain, receipt. Live screen ledger.",
+  "response": {
+    "policy_version": "1.0",
+    "policy_hash": "sha256:6fdbc8bad57ccdb068bd5ccb6745bcb08b8b66e27b3a5b286f3eaae2c4e474bf",
+    "chain_valid": true,
+    "chain_status": "ok",
+    "stats": {
+      "outbox_depth": 0,
+      "oldest_unsent_s": 0.0,
+      "last_acked_seq": 25,
+      "highest_seq": 25,
+      "total_sent_records": 738
+    },
+    "recent_envelopes": [
+      {
+        "seq": 25,
+        "payload_id": "01a1fa45-0e13-728a-be3d-725445021e8b",
+        "sent_at": "2026-11-20T18:43:12.018Z",
+        "record_count": 32,
+        "payload_hash": "sha256:166a7e35d20d14666080282d0922ac5ef002f660d77c9a3dc02f6be8c7c6913d",
+        "prev_hash": "sha256:d589883d2710f36781980a69aeebf73ad6968ad7846713145f07a9f8aed4f4e5",
+        "status": "acked",
+        "attempts": 1,
+        "acked_at": "2026-11-20T18:43:12.303Z",
+        "has_receipt": true
+      },
+      {
+        "seq": 24,
+        "payload_id": "01a1fa45-0523-7167-a835-894c46528d25",
+        "sent_at": "2026-11-20T18:43:09.730Z",
+        "record_count": 1,
+        "payload_hash": "sha256:d589883d2710f36781980a69aeebf73ad6968ad7846713145f07a9f8aed4f4e5",
+        "prev_hash": "sha256:57f82c6cb4e7f30a6377edbc4ed76b5b3b16ddc982682bc097ceb999bcbdb646",
+        "status": "acked",
+        "attempts": 1,
+        "acked_at": "2026-11-20T18:43:09.816Z",
+        "has_receipt": true
+      },
+      {
+        "seq": 23,
+        "payload_id": "01a1fa44-fa71-73b9-b65f-51e96585b4d9",
+        "sent_at": "2026-11-20T18:43:06.992Z",
+        "record_count": 32,
+        "payload_hash": "sha256:57f82c6cb4e7f30a6377edbc4ed76b5b3b16ddc982682bc097ceb999bcbdb646",
+        "prev_hash": "sha256:ef943fea75d959c06604932bea2b63640d165c8d49f2fb4c448cf5cbc56e2381",
+        "status": "acked",
+        "attempts": 1,
+        "acked_at": "2026-11-20T18:43:07.030Z",
+        "has_receipt": true
+      }
+    ],
+    "redaction_summary": {
+      "secrets_scrubbed": 0,
+      "canaries_blocked": 0,
+      "patterns_verified": 0
+    }
+  }
+}
