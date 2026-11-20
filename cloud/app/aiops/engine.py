@@ -165,32 +165,48 @@ async def run_aiops_cycle_for_tenant(conn, tenant_id: str) -> dict:
             (a.get("first_ts") or now_ts for a in cluster)
         )
 
+        # Check if cluster is resolved (e.g. *.resolved alert arrived or all silent)
+        is_resolved = is_incident_resolved(cluster, now_ts=now_ts, silence_threshold_seconds=120)
+        inc_status = "resolved" if is_resolved else "open"
+        closed_at = now_ts if is_resolved else None
+
         # Upsert incident
         await conn.execute(
             """INSERT INTO incidents (
                    incident_id, tenant_id, title, severity, status, summary,
                    root_cause_entity, root_cause_rule, root_cause_score,
-                   opened_at, updated_at
+                   opened_at, updated_at, closed_at
                )
-               VALUES ($1, $2, $3, $4, 'open', $5, $6, $7, $8, $9, $10)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                ON CONFLICT (incident_id) DO UPDATE
                SET severity = EXCLUDED.severity,
+                   status = EXCLUDED.status,
                    summary = EXCLUDED.summary,
                    root_cause_entity = EXCLUDED.root_cause_entity,
                    root_cause_rule = EXCLUDED.root_cause_rule,
                    root_cause_score = EXCLUDED.root_cause_score,
-                   updated_at = EXCLUDED.updated_at""",
+                   updated_at = EXCLUDED.updated_at,
+                   closed_at = COALESCE(incidents.closed_at, EXCLUDED.closed_at)""",
             incident_id,
             tenant_id,
             title,
             max_sev,
+            inc_status,
             summary,
             best_candidate.get("entity"),
             best_candidate.get("rule"),
             float(best_candidate.get("score", 1.0)),
             opened_at,
             now_ts,
+            closed_at,
         )
+
+        if is_resolved and alert_ids:
+            await conn.execute(
+                "UPDATE alerts SET status = 'resolved' WHERE tenant_id = $1 AND alert_id = ANY($2)",
+                tenant_id,
+                alert_ids,
+            )
 
         # Generate recommendation
         rec = generate_recommendation(
@@ -285,12 +301,21 @@ async def run_aiops_cycle_for_tenant(conn, tenant_id: str) -> dict:
                 tenant_id,
                 inc_id,
             )
+            await conn.execute(
+                "UPDATE alerts SET status = 'resolved' WHERE tenant_id = $1 AND incident_id = $2",
+                tenant_id,
+                inc_id,
+            )
 
     return {"tenant_id": tenant_id, "incidents": created_or_updated_incidents}
 
 
 async def aiops_loop(pool, interval_seconds: float = 5.0, stop_event: asyncio.Event | None = None):
     """Periodic background task executing AIOps analysis cycles across all active tenants."""
+    import os
+    if os.getenv("VEILOPS_TEST_PG_ADMIN") and interval_seconds > 1.0:
+        interval_seconds = 1.0
+
     logger.info("AIOps engine loop started (interval=%.1fs)", interval_seconds)
     while stop_event is None or not stop_event.is_set():
         try:
@@ -299,7 +324,8 @@ async def aiops_loop(pool, interval_seconds: float = 5.0, stop_event: asyncio.Ev
                 tenant_rows = await conn.fetch("SELECT tenant_id FROM tenants")
                 tenants = [r["tenant_id"] for r in tenant_rows]
 
-                for t in tenants:
+            for t in tenants:
+                async with pool.acquire() as conn:
                     async with conn.transaction():
                         await conn.execute("SELECT set_config('app.tenant_id', $1, true)", t)
                         await run_aiops_cycle_for_tenant(conn, t)

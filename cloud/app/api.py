@@ -234,7 +234,8 @@ async def incidents(request: Request, status: str | None = None,
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
             rows = await conn.fetch(
-                """SELECT incident_id,title,severity,status,summary,opened_at,updated_at,closed_at
+                """SELECT incident_id,title,severity,status,summary,root_cause_entity,
+                          root_cause_rule,root_cause_score,opened_at,updated_at,closed_at
                    FROM incidents WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2)
                    ORDER BY updated_at DESC LIMIT $3""",
                 tenant, status, limit,
@@ -249,7 +250,8 @@ async def incident_detail(incident_id: UUID, request: Request):
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
             row = await conn.fetchrow(
-                """SELECT incident_id,title,severity,status,summary,opened_at,updated_at,closed_at
+                """SELECT incident_id,title,severity,status,summary,root_cause_entity,
+                          root_cause_rule,root_cause_score,opened_at,updated_at,closed_at
                    FROM incidents WHERE tenant_id=$1 AND incident_id=$2""",
                 tenant, incident_id,
             )

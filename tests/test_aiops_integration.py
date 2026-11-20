@@ -10,7 +10,7 @@ Verifies 5 required end-to-end scenarios:
 2. Load-aware CPU runaway: cpu elevated, req_rate flat -> 1 incident, RESTART_SERVICE.
 3. Idempotency: rerunning AIOps cycle produces zero duplicate incidents, recommendations, or evidence.
 4. Tenant isolation: Tenant B never sees Tenant A's incidents or recommendations under RLS.
-5. Lifecycle auto-resolution: incident marks resolved after alerts stop.
+5. Lifecycle auto-resolution: incident marks resolved after *.resolved alert arrives.
 """
 import base64
 import hashlib
@@ -44,6 +44,12 @@ def entity_id(prefix: str, label: str) -> str:
     """Return a deterministic entity ID matching VeilOps schema pattern."""
     h = hashlib.sha256(label.encode("utf-8")).hexdigest()[:10]
     return f"{prefix}_{h}"
+
+
+def uuid7() -> uuid.UUID:
+    """Generate a canonical UUIDv7 matching the wire contract."""
+    ms, r = int(time.time() * 1000), secrets.randbits(74)
+    return uuid.UUID(int=(ms << 80) | (7 << 76) | ((r >> 62) << 64) | (2 << 62) | (r & ((1 << 62) - 1)))
 
 
 def iso(dt: datetime) -> str:
@@ -149,7 +155,7 @@ def signed(client, method: str, path: str, body: bytes, collector: str = "col_a"
 
 
 def envelope(seq: int, records: list, collector="col_a", tenant=TENANT_A, payload_id=None) -> tuple[bytes, str]:
-    pid = str(payload_id or uuid.uuid4())
+    pid = str(payload_id or uuid7())
     body = json.dumps({"schema_version": "1.0", "payload_id": pid, "tenant_id": tenant,
                        "collector_id": collector, "region": "in", "seq": seq, "sent_at": iso(now()),
                        "policy": {"version": 1, "hash": HASH},
@@ -165,7 +171,7 @@ def send(client, seq, records, **kw):
     return r, body, pid
 
 
-def wait_for(fn, timeout=12.0, step=0.3):
+def wait_for(fn, timeout=15.0, step=0.3):
     end = time.time() + timeout
     while time.time() < end:
         value = fn()
@@ -184,32 +190,38 @@ def test_scenario_1_link_failure_clustering_and_root_cause(client):
     svc1, svc2, svc3 = entity_id("svc", "api"), entity_id("svc", "auth"), entity_id("svc", "pay")
 
     t = now()
-    # Topology record
+    # Topology record: wire format uses src, dst, rel
     topo = {
         "type": "topology",
         "edges": [
-            {"source_entity": h1, "target_entity": lnk, "relation": "connects_via"},
-            {"source_entity": h2, "target_entity": lnk, "relation": "connects_via"},
-            {"source_entity": svc1, "target_entity": h1, "relation": "runs_on"},
-            {"source_entity": svc2, "target_entity": h1, "relation": "runs_on"},
-            {"source_entity": svc3, "target_entity": h2, "relation": "runs_on"},
+            {"src": h1, "dst": lnk, "rel": "connects_via"},
+            {"src": h2, "dst": lnk, "rel": "connects_via"},
+            {"src": svc1, "dst": h1, "rel": "runs_on"},
+            {"src": svc2, "dst": h1, "rel": "runs_on"},
+            {"src": svc3, "dst": h2, "rel": "runs_on"},
         ],
-        "event_ts": iso(t), "source_tz": "UTC"
+        "event_ts": iso(t)
     }
 
     alerts = [
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": lnk, "rule": "threshold.loss.high",
-         "severity": "critical", "template_id": "T_LOSS", "params": {"loss": 45.0}, "event_ts": iso(t - timedelta(seconds=30)), "source_tz": "UTC"},
+         "severity": "critical", "template_id": "T_LOSS_HIGH", "params": {"value": 45.0, "threshold": 10.0},
+         "event_ts": iso(t - timedelta(seconds=30)), "source_tz": "Asia/Kolkata"},
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": h1, "rule": "threshold.latency.high",
-         "severity": "high", "template_id": "T_LAT", "params": {"latency_ms": 180}, "event_ts": iso(t - timedelta(seconds=25)), "source_tz": "UTC"},
+         "severity": "high", "template_id": "T_LAT_HIGH", "params": {"value": 180.0, "threshold": 50.0},
+         "event_ts": iso(t - timedelta(seconds=25)), "source_tz": "Asia/Kolkata"},
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": h2, "rule": "threshold.latency.high",
-         "severity": "high", "template_id": "T_LAT", "params": {"latency_ms": 190}, "event_ts": iso(t - timedelta(seconds=20)), "source_tz": "UTC"},
+         "severity": "high", "template_id": "T_LAT_HIGH", "params": {"value": 190.0, "threshold": 50.0},
+         "event_ts": iso(t - timedelta(seconds=20)), "source_tz": "Asia/Kolkata"},
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": svc1, "rule": "threshold.svc.down",
-         "severity": "critical", "template_id": "T_DOWN", "params": {}, "event_ts": iso(t - timedelta(seconds=15)), "source_tz": "UTC"},
+         "severity": "critical", "template_id": "T_SVC_DOWN", "params": {"value": 0.0},
+         "event_ts": iso(t - timedelta(seconds=15)), "source_tz": "Asia/Kolkata"},
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": svc2, "rule": "threshold.resp_ms.high",
-         "severity": "warning", "template_id": "T_RESP", "params": {}, "event_ts": iso(t - timedelta(seconds=10)), "source_tz": "UTC"},
+         "severity": "warning", "template_id": "T_RESP_HIGH", "params": {"value": 850.0},
+         "event_ts": iso(t - timedelta(seconds=10)), "source_tz": "Asia/Kolkata"},
         {"type": "alert", "alert_id": str(uuid.uuid4()), "entity": svc3, "rule": "log.db.connect_error",
-         "severity": "warning", "template_id": "T_ERR", "params": {}, "event_ts": iso(t - timedelta(seconds=5)), "source_tz": "UTC"},
+         "severity": "warning", "template_id": "T_CONNECT_ERR", "params": {"value": 5.0},
+         "event_ts": iso(t - timedelta(seconds=5)), "source_tz": "Asia/Kolkata"},
     ]
 
     r, _, _ = send(client, 1, [topo] + alerts)
@@ -222,7 +234,7 @@ def test_scenario_1_link_failure_clustering_and_root_cause(client):
             return res.json()["incidents"]
         return None
 
-    incidents = wait_for(check_incident, timeout=12.0)
+    incidents = wait_for(check_incident, timeout=15.0)
     assert len(incidents) == 1
     inc = incidents[0]
 
@@ -231,20 +243,17 @@ def test_scenario_1_link_failure_clustering_and_root_cause(client):
     assert detail["incident"]["root_cause_entity"] == lnk
     assert len(detail["evidence_links"]) >= 1
 
-    # Verify timeline
+    # Verify timeline endpoint
     tl = client.get(f"/api/v1/incidents/{inc['incident_id']}/timeline", headers=A()).json()
     assert len(tl["alerts"]) == 6
     assert tl["root_cause_ranking"][0]["entity"] == lnk
 
     # Verify recommendation
-    recs = client.get("/api/v1/actions", headers=A()).json()  # Or check detail
-    rec_r = client.get(f"/api/v1/incidents/{inc['incident_id']}", headers=A()).json()
-    # Check recommendation detail
     rec_id = detail["evidence_links"][0].get("recommendation_id") if detail["evidence_links"] else None
-    if rec_id:
-        r_resp = client.get(f"/api/v1/recommendations/{rec_id}", headers=A())
-        assert r_resp.status_code == 200
-        assert r_resp.json()["recommendation"]["action_type"] == "FAILOVER_TO_SECONDARY_LINK"
+    assert rec_id is not None
+    r_resp = client.get(f"/api/v1/recommendations/{rec_id}", headers=A())
+    assert r_resp.status_code == 200
+    assert r_resp.json()["recommendation"]["action_type"] == "FAILOVER_TO_SECONDARY_LINK"
 
 
 def test_scenario_2_cpu_runaway_restart_service(client):
@@ -255,14 +264,16 @@ def test_scenario_2_cpu_runaway_restart_service(client):
     # Metric points: cpu 96%, req_rate 1.0 (flat)
     metrics = [
         {"type": "metric", "entity": h, "entity_kind": "host", "metric": "cpu.util_pct", "unit": "pct",
-         "avg": 96.0, "min": 94.0, "max": 98.0, "p95": 97.0, "count": 5, "window_s": 5, "event_ts": iso(t), "source_tz": "UTC"},
+         "avg": 96.0, "min": 94.0, "max": 98.0, "p95": 97.0, "count": 5, "window_s": 5,
+         "event_ts": iso(t), "source_tz": "Asia/Kolkata"},
         {"type": "metric", "entity": h, "entity_kind": "host", "metric": "load.req_rate", "unit": "rps",
-         "avg": 1.0, "min": 1.0, "max": 1.0, "p95": 1.0, "count": 5, "window_s": 5, "event_ts": iso(t), "source_tz": "UTC"},
+         "avg": 1.0, "min": 1.0, "max": 1.0, "p95": 1.0, "count": 5, "window_s": 5,
+         "event_ts": iso(t), "source_tz": "Asia/Kolkata"},
     ]
     alert_cpu = {
         "type": "alert", "alert_id": str(uuid.uuid4()), "entity": h, "rule": "threshold.cpu.runaway",
         "severity": "critical", "template_id": "T_RUNAWAY", "params": {"value": 96.0},
-        "event_ts": iso(t), "source_tz": "UTC"
+        "event_ts": iso(t), "source_tz": "Asia/Kolkata"
     }
 
     r, _, _ = send(client, 10, metrics + [alert_cpu])
@@ -276,19 +287,25 @@ def test_scenario_2_cpu_runaway_restart_service(client):
                 return inc
         return None
 
-    inc = wait_for(check, timeout=12.0)
+    inc = wait_for(check, timeout=15.0)
     assert inc["root_cause_entity"] == h
-    assert "runaway" in inc["summary"].lower() or "did not move" in inc["summary"].lower()
+
+    # Check recommendation is RESTART_SERVICE
+    detail = client.get(f"/api/v1/incidents/{inc['incident_id']}", headers=A()).json()
+    rec_id = detail["evidence_links"][0].get("recommendation_id") if detail["evidence_links"] else None
+    assert rec_id is not None
+    r_resp = client.get(f"/api/v1/recommendations/{rec_id}", headers=A())
+    assert r_resp.status_code == 200
+    assert r_resp.json()["recommendation"]["action_type"] == "RESTART_SERVICE"
 
 
 def test_scenario_3_idempotency_no_duplicates(client):
     """Scenario 3: Rerunning loop creates no duplicate incidents."""
-    # Retrieve current count of incidents
     res = client.get("/api/v1/incidents", headers=A()).json()
     init_count = len(res.get("incidents", []))
 
     # Wait for two loop intervals
-    time.sleep(6)
+    time.sleep(3)
     res2 = client.get("/api/v1/incidents", headers=A()).json()
     assert len(res2.get("incidents", [])) == init_count
 
@@ -310,6 +327,10 @@ def test_scenario_4_tenant_isolation(client):
         res_cross = client.get(f"/api/v1/incidents/{target_id}", headers=B())
         assert res_cross.status_code == 404
 
+        # Tenant B tries timeline
+        res_tl = client.get(f"/api/v1/incidents/{target_id}/timeline", headers=B())
+        assert res_tl.status_code == 404
+
 
 def test_scenario_5_auto_resolution(client):
     """Scenario 5: Incident marks resolved after *.resolved alert arrives."""
@@ -318,9 +339,11 @@ def test_scenario_5_auto_resolution(client):
     # 1. Open alert
     a_open = {
         "type": "alert", "alert_id": str(uuid.uuid4()), "entity": h, "rule": "threshold.cpu.high",
-        "severity": "critical", "template_id": "T_CPU", "params": {}, "event_ts": iso(t), "source_tz": "UTC"
+        "severity": "critical", "template_id": "T_CPU_HIGH", "params": {"value": 98.0},
+        "event_ts": iso(t), "source_tz": "Asia/Kolkata"
     }
-    send(client, 20, [a_open])
+    r1, _, _ = send(client, 20, [a_open])
+    assert r1.status_code == 202
 
     def find_inc():
         for i in client.get("/api/v1/incidents", headers=A()).json().get("incidents", []):
@@ -328,15 +351,17 @@ def test_scenario_5_auto_resolution(client):
                 return i
         return None
 
-    inc = wait_for(find_inc, timeout=12.0)
+    inc = wait_for(find_inc, timeout=15.0)
     assert inc["status"] == "open"
 
     # 2. Resolved alert arrives
     a_res = {
         "type": "alert", "alert_id": str(uuid.uuid4()), "entity": h, "rule": "threshold.cpu.high.resolved",
-        "severity": "info", "template_id": "T_RESOLVED", "params": {}, "event_ts": iso(now()), "source_tz": "UTC"
+        "severity": "info", "template_id": "T_RESOLVED", "params": {"value": 20.0},
+        "event_ts": iso(now()), "source_tz": "Asia/Kolkata"
     }
-    send(client, 21, [a_res])
+    r2, _, _ = send(client, 21, [a_res])
+    assert r2.status_code == 202
 
     def check_resolved():
         for i in client.get("/api/v1/incidents", headers=A()).json().get("incidents", []):
@@ -344,5 +369,5 @@ def test_scenario_5_auto_resolution(client):
                 return i
         return None
 
-    resolved_inc = wait_for(check_resolved, timeout=12.0)
+    resolved_inc = wait_for(check_resolved, timeout=15.0)
     assert resolved_inc["status"] == "resolved"

@@ -23,7 +23,8 @@ def are_entities_connected(
     adj: dict[str, set[str]] = {}
     for edge in edges:
         if isinstance(edge, dict):
-            u, v = edge["source_entity"], edge["target_entity"]
+            u = edge.get("source_entity") or edge.get("src", "")
+            v = edge.get("target_entity") or edge.get("dst", "")
         else:
             u, v = edge[0], edge[1]
         adj.setdefault(u, set()).add(v)
@@ -64,7 +65,8 @@ def group_alerts_into_incidents(
     adj: dict[str, set[str]] = {}
     for edge in edges:
         if isinstance(edge, dict):
-            u, v = edge["source_entity"], edge["target_entity"]
+            u = edge.get("source_entity") or edge.get("src", "")
+            v = edge.get("target_entity") or edge.get("dst", "")
         else:
             u, v = edge[0], edge[1]
         adj.setdefault(u, set()).add(v)

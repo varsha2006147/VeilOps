@@ -78,9 +78,9 @@ def rank_root_cause(
     dep_graph: dict[str, set[str]] = {}
     for edge in edges:
         if isinstance(edge, dict):
-            src = edge.get("source_entity", "")
-            tgt = edge.get("target_entity", "")
-            rel = edge.get("relation", "")
+            src = edge.get("source_entity") or edge.get("src", "")
+            tgt = edge.get("target_entity") or edge.get("dst", "")
+            rel = edge.get("relation") or edge.get("rel", "")
         else:
             src, tgt, rel = edge[0], edge[1], edge[2] if len(edge) > 2 else "depends_on"
 
