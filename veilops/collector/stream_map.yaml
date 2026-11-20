@@ -1,0 +1,21 @@
+# Organizer stream field mapping. When the organizer publishes the format, edit ONLY this file.
+# Each canonical key lists the field names to try, first match wins. Unknown fields are ignored (default deny).
+fields:
+  ts: [ts, timestamp, time, "@timestamp", event_time, eventTime]
+  tz: [tz, source_tz, timezone]
+  tenant: [tenant, tenant_id, customer, org]
+  kind: [kind, type, event_type, category]
+  entity: [host, hostname, entity, device, node, service, link, source]
+  entity_kind: [entity_kind, entityType]
+  metric: [metric, metric_name, name]
+  value: [value, val, reading]
+  message: [message, msg, log, line]
+  level: [level, severity, log_level]
+  principal: [user, username, principal, account]
+  source_addr: [src_ip, source_ip, client_ip, ip, remote_addr]
+  outcome: [outcome, result, auth_result]
+kind_aliases:
+  metric: [metric, metrics, gauge, telemetry]
+  log: [log, logs, syslog, event]
+  auth: [auth, login, authentication, security]
+wide_metrics: true          # {"host":"a","cpu":91,"memory":60} -> one sample per known metric key

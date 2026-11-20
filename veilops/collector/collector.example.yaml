@@ -1,0 +1,45 @@
+# VeilOps collector config (Member A owns sources/windows; Member B owns transport/policy keys)
+collector_id: col_blr_01
+tenant_id: t_acme
+region: in
+environment: blr-dc1
+source_tz: Asia/Kolkata
+ingest_url: ${INGEST_URL:-https://in.ingest.veilops.local/v1}
+db_path: data/collector_acme.db
+demo_mode: true
+downstream: none            # set to "privacy" once Member B's stage is merged
+
+sources:
+  stream:                   # ORGANIZER STREAM - switch driver/url at the event
+    enabled: ${STREAM_ENABLED:-false}
+    driver: ${STREAM_DRIVER:-sse}        # file | csv | sse | websocket | http_poll | kafka
+    url: ${STREAM_URL:-http://localhost:9000/stream}
+    path: ${STREAM_PATH:-data/stream.jsonl}
+    map_file: veilops/collector/stream_map.yaml
+    tenant_filter: t_acme
+  sim:                      # SIMULATED (team) - rehearsal + Chaos tab
+    enabled: true
+    interval_s: 1
+  host:
+    enabled: true
+    interval_s: 1
+  probes:
+    enabled: true
+    interval_s: 2
+    count: 3
+    targets:
+      - { name: gw-dns, host: 1.1.1.1, port: 53 }
+      - { name: api-gw, host: 8.8.8.8, port: 53 }
+  syslog:
+    enabled: true
+    udp_port: 5514
+    files: [/var/log/auth.log]
+
+windows:
+  metrics_s: 5
+  allowed_lateness_s: 300
+retention:
+  raw_h: 72
+ui:
+  host: 0.0.0.0
+  port: 8100
