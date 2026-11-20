@@ -7,8 +7,8 @@
     "dev": "vite --port 5173",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "dev:site": "VITE_APP=site vite --port 5174",
-    "build:site": "tsc -b && VITE_APP=site vite build --outDir dist-site"
+    "dev:site": "vite --mode site --port 5174",
+    "build:site": "tsc -b && vite build --mode site --outDir dist-site"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.0",

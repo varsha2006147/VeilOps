@@ -8,8 +8,7 @@ services:
       POSTGRES_DB: veilops
       POSTGRES_USER: veilops
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veilops_dev_only}
-    ports:
-      - "127.0.0.1:5432:5432"
+    # No host port: only cloud-api talks to Postgres, over the compose network (avoids clashing with a local Postgres).
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../cloud/migrations:/docker-entrypoint-initdb.d:ro
@@ -23,8 +22,7 @@ services:
     restart: unless-stopped
     image: redis:7
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "127.0.0.1:6379:6379"
+    # No host port: only cloud-api talks to Redis, over the compose network (avoids clashing with a local Redis).
     volumes:
       - redis_data:/data
     healthcheck:
