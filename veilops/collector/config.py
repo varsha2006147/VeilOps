@@ -23,8 +23,8 @@ class Thresholds:
     rules: dict[str, dict[str, Any]] = field(default_factory=lambda: {
         "cpu.util_pct":   {"limit": 90.0, "severity": "warning", "template": "T_CPU_HIGH"},
         "mem.util_pct":   {"limit": 92.0, "severity": "warning", "template": "T_MEM_HIGH"},
-        "disk.util_pct":  {"limit": 95.0, "severity": "high", "template": "T_DISK_HIGH"},
-        "net.loss_pct":   {"limit": 5.0, "severity": "high", "template": "T_LOSS_HIGH"},
+        "disk.util_pct":  {"limit": 95.0, "severity": "critical", "template": "T_DISK_HIGH"},
+        "net.loss_pct":   {"limit": 5.0, "severity": "critical", "template": "T_LOSS_HIGH"},
         "net.latency_ms": {"limit": 200.0, "severity": "warning", "template": "T_LATENCY_HIGH"},
         "svc.up":         {"limit": 0.5, "below": True, "severity": "critical", "template": "T_SVC_DOWN"},
         "net.reachable":  {"limit": 0.5, "below": True, "severity": "critical", "template": "T_UNREACHABLE"},
