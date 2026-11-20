@@ -121,3 +121,15 @@ SET avg = EXCLUDED.avg, min = EXCLUDED.min, max = EXCLUDED.max, p95 = EXCLUDED.p
     count = EXCLUDED.count, payload_id = EXCLUDED.payload_id, received_at = EXCLUDED.received_at
 WHERE EXCLUDED.count > metric_points.count;
 ```
+
+## 7. Remediation (A -> B)
+
+B's action poller, after Ed25519 + expiry + local-policy checks, calls:
+```python
+from veilops.collector.remediation import SandboxExecutor
+result = await SandboxExecutor(os.environ["SANDBOX_URL"]).run_safe(action.type, source=real_source_or_None,
+                                                                  local_policy_decision="allow" | "veto")
+```
+`result` has the `ActionResult` fields (`status`, `local_policy_decision`, `health_before`, `health_after`, `ts`)
+plus `steps` and `sandbox_action_id` for the local audit log. `TEMP_BLOCK_SOURCE_15M` needs the real address:
+resolve the `src_` pseudonym locally first. Never send `steps` to the SaaS (they contain local detail).

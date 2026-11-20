@@ -28,6 +28,11 @@ def build_sources(cfg: CollectorConfig) -> dict[str, Source]:
         mapper.tenant_filter = (st or {}).get("tenant_filter", cfg.tenant_id)
     if st and st.get("enabled", True):
         out["stream"] = StreamSource(st, mapper)
+    for extra in s.get("extra_streams") or []:          # e.g. the remediation sandbox's /metrics
+        if extra.get("enabled", True):
+            em = StreamMapper.from_file(extra.get("map_file"), cfg.source_tz)
+            em.tenant_filter = extra.get("tenant_filter", cfg.tenant_id)
+            out[extra.get("name", f"stream-{len(out)}")] = StreamSource(extra, em)
     if s.get("sim", {}).get("enabled"):
         from .sources.simsource import SimSource
         out["sim"] = SimSource(s["sim"], cfg.tenant_id, cfg.source_tz, mapper)

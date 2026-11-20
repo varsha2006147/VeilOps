@@ -14,6 +14,7 @@ COPY veilops/__init__.py veilops/__init__.py
 COPY veilops/schema veilops/schema
 COPY veilops/sim veilops/sim
 COPY veilops/collector veilops/collector
+COPY veilops/sandbox veilops/sandbox
 
 # Non-root; /data holds the raw store, outbox, ledger and the tenant-local pseudonym key (never leaves).
 RUN useradd --uid 10001 --create-home veilops && mkdir -p /data /etc/veilops \
