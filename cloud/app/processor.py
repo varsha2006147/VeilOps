@@ -98,6 +98,8 @@ class StreamProcessor:
                             await self._alert(conn, tenant_id, record, event_ts)
                         elif kind == "health":
                             await self._health(conn, tenant_id, record, event_ts)
+                        elif kind == "topology":
+                            await self._topology(conn, tenant_id, collector_id, record, event_ts)
         await self.redis.publish(
             f"veilops:tenant:{tenant_id}:events",
             json.dumps({"event": "telemetry_processed", "collector_id": collector_id, "payload_id": str(payload_id)}),
@@ -215,6 +217,38 @@ class StreamProcessor:
                 tenant_id, entity, old_state, state, reasons, event_ts,
             )
 
+    async def _topology(self, conn, tenant_id, collector_id, record, event_ts):
+        """Replace topology edges belonging only to this collector."""
+
+        await conn.execute(
+            """
+            DELETE FROM topology_edges
+            WHERE tenant_id = $1 AND collector_id = $2
+            """,
+            tenant_id,
+            collector_id,
+        )
+
+        for edge in record["edges"]:
+            await conn.execute(
+                """
+                INSERT INTO topology_edges
+                    (tenant_id, collector_id, source_entity,
+                     target_entity, relation, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (
+                    tenant_id, collector_id, source_entity,
+                    target_entity, relation
+                )
+                DO UPDATE SET updated_at = EXCLUDED.updated_at
+                """,
+                tenant_id,
+                collector_id,
+                edge["src"],
+                edge["dst"],
+                edge["rel"],
+                event_ts,
+            )
 
 async def stream_outbox_publisher(redis, pool, stream: str, interval_seconds: float = 0.5,
                                   stop_event=None):
