@@ -11,3 +11,5 @@ jinja2>=3.1
 pytest>=8.0
 pytest-asyncio>=0.23
 hypothesis>=6.100
+asyncpg>=0.29
+redis>=5.0
