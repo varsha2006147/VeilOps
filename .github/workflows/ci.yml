@@ -1,4 +1,4 @@
-﻿# VeilOps CI: every PR into main must pass these before it can merge (enable branch protection on `main`).
+# VeilOps CI: every PR into main must pass these before it can merge (enable branch protection on `main`).
 name: CI
 
 on:
