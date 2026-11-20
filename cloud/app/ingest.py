@@ -2,6 +2,7 @@
 import hashlib
 import json
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -38,8 +39,9 @@ async def ingest(request: Request):
     if idem != str(envelope.payload_id):
         raise HTTPException(422, detail={"code": "SCHEMA_VIOLATION", "field": "Idempotency-Key"})
 
+    payload_uuid = UUID(envelope.payload_id)
     payload_hash = "sha256:" + hashlib.sha256(body).hexdigest()
-    sent_at = envelope.sent_at.astimezone(timezone.utc)
+    sent_at = datetime.fromisoformat(envelope.sent_at.replace('Z', '+00:00')).astimezone(timezone.utc)
     now = datetime.now(timezone.utc)
     if abs((now - sent_at).total_seconds()) > 86400:
         # Sent-at is a clock-skew signal, not the replay defense; the signed
@@ -63,7 +65,7 @@ async def ingest(request: Request):
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", envelope.tenant_id)
             existing = await conn.fetchrow(
                 "SELECT payload_hash, received_at FROM ingest_receipts WHERE tenant_id=$1 AND payload_id=$2",
-                envelope.tenant_id, envelope.payload_id,
+                envelope.tenant_id, payload_uuid,
             )
             if existing:
                 if existing["payload_hash"] != payload_hash:
@@ -83,7 +85,7 @@ async def ingest(request: Request):
                     """INSERT INTO ingest_receipts
                        (tenant_id,payload_id,collector_id,seq,payload_hash,sent_at,received_at)
                        VALUES($1,$2,$3,$4,$5,$6,$7)""",
-                    envelope.tenant_id, envelope.payload_id, auth.collector_id,
+                    envelope.tenant_id, payload_uuid, auth.collector_id,
                     envelope.seq, payload_hash, sent_at, now,
                 )
             except Exception as exc:
@@ -94,7 +96,7 @@ async def ingest(request: Request):
 
             event_times = [
                 datetime.fromisoformat(record["event_ts"].replace("Z", "+00:00"))
-                for record in envelope.records if record.get("event_ts")
+                for record in envelope.records
             ]
             if event_times:
                 oldest_event = min(event_times)
@@ -114,7 +116,7 @@ async def ingest(request: Request):
                    (tenant_id,collector_id,payload_id,seq,payload_hash,sent_at,received_at,body)
                    VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
                    ON CONFLICT(tenant_id,payload_id) DO NOTHING""",
-                envelope.tenant_id, auth.collector_id, envelope.payload_id,
+                envelope.tenant_id, auth.collector_id, payload_uuid,
                 envelope.seq, payload_hash, sent_at, now, body.decode("utf-8"),
             )
 
