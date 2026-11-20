@@ -40,7 +40,11 @@ def uuid7() -> uuid.UUID:
 
 
 def iso(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return (
+        dt.astimezone(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def now() -> datetime:
