@@ -12,6 +12,11 @@ from cloud.app.judge import record_rejection
 from cloud.app.security import authenticate_collector
 
 router = APIRouter(prefix="/v1", tags=["collector-ingest"])
+
+
+def _wire_ts(value: datetime) -> str:
+    """Receipt timestamps use the wire format: RFC 3339 UTC, millisecond precision, 'Z'."""
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 MAX_BODY_BYTES = 1_048_576
 
 
@@ -88,7 +93,8 @@ async def _store(request, envelope, auth, body, payload_hash, sent_at, now):
                                        envelope.payload_id, envelope.seq, "duplicate_payload")
                 receipt = {
                     "payload_id": str(envelope.payload_id), "payload_hash": payload_hash,
-                    "status": "duplicate", "received_at": existing["received_at"].isoformat(),
+                    "status": "duplicate", "received_at": _wire_ts(existing["received_at"]),
+                    "region": envelope.region,
                     "highest_contiguous_seq": await _highest_contiguous(conn, envelope.tenant_id, auth.collector_id),
                 }
                 receipt["sig"] = request.app.state.receipt_signer.sign(
@@ -138,7 +144,7 @@ async def _store(request, envelope, auth, body, payload_hash, sent_at, now):
 
     receipt = {
         "payload_id": str(envelope.payload_id), "payload_hash": payload_hash,
-        "status": "stored", "received_at": now.isoformat(),
+        "status": "stored", "received_at": _wire_ts(now), "region": envelope.region,
         "highest_contiguous_seq": envelope.seq,
     }
     receipt["sig"] = request.app.state.receipt_signer.sign(
