@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP, DEMO_USERS, cloud, local, session, signInAs } from "../api";
 import { usePoll, useRange } from "../hooks";
+import { Guide } from "./Guide";
 
 export function CloudLayout({ crumb, live, children }: { crumb: string; live: boolean; children: ReactNode }) {
   const nav = useNavigate();
@@ -46,6 +47,7 @@ export function CloudLayout({ crumb, live, children }: { crumb: string; live: bo
         </span>
       </header>
       <main style={{ minWidth: 0 }}>{children}</main>
+      <Guide app="cloud" />
     </div>
   );
 }
@@ -94,8 +96,8 @@ export function SiteLayout({ crumb, children }: { crumb: string; children: React
         </span>
       </header>
       <main style={{ minWidth: 0 }}>{children}</main>
-      {note && <div className="toast fade" role="status"><b style={{ color: "var(--hi)", fontWeight: 500 }}>Simulation started.</b> {note}</div>}
-      {note && <div className="toast fade" role="status"><b style={{ color: "var(--hi)", fontWeight: 500 }}>Simulation started.</b> {note}</div>}
+      <Guide app="site" />
+      {note && <div className="toast fade" role="status" style={{ top: 60, bottom: "auto" }}><b style={{ color: "var(--hi)", fontWeight: 500 }}>Simulation started.</b> {note}</div>}
     </div>
   );
 }

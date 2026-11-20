@@ -81,3 +81,21 @@ The token is single-use. If you rebuild A from scratch (`down -v`), make a new t
 - **A can't reach B:** Wi-Fi client isolation or the firewall. Use the hotspot, allow Docker, and check `CLOUD_BIND=0.0.0.0`.
 - **The dashboard shows "cloud unreachable":** B's API is down. Run `docker compose -f deploy/docker-compose.yml ps` and check `logs cloud-api`.
 - **Enrollment fails with `BAD_OR_EXPIRED_ENROLLMENT_TOKEN`:** the token lasts 15 minutes and works once. Make a new token (B2) and restart `collector-acme`.
+
+## Start from zero (before the evaluator arrives)
+
+Mac (cloud):
+```bash
+docker compose -f deploy/docker-compose.yml down -v
+docker compose -f deploy/docker-compose.yml up -d --build postgres redis cloud-api
+```
+Recreate the demo accounts (B1), make a token (B2), keep `npm run dev` running.
+
+Customer laptop:
+```bash
+docker compose -f deploy/collector.compose.yml down -v
+docker compose -f deploy/collector.compose.yml up -d --build sim sandbox collector-acme
+```
+Every counter, incident and audit entry now starts at 0. In both browsers click **Guided demo → Restart**.
+The guide moves one step at a time and ticks each step only when the live data shows it happened.
+Real host metrics and public-DNS probes are off in this compose file (`HOST_ENABLED`, `PROBES_ENABLED`) so the map shows only the site's 8 systems.
