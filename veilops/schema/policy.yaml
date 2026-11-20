@@ -1,0 +1,128 @@
+version: "1.0"
+
+record_types:
+  metric:
+    fields:
+      - type
+      - entity
+      - entity_kind
+      - metric
+      - unit
+      - avg
+      - min
+      - max
+      - p95
+      - count
+      - window_s
+      - event_ts
+      - source_tz
+    constraints:
+      metric:
+        enum:
+          - cpu.util_pct
+          - mem.util_pct
+          - disk.util_pct
+          - disk.io_wait_pct
+          - svc.up
+          - svc.resp_ms
+          - net.latency_ms
+          - net.loss_pct
+          - net.bw_in_mbps
+          - net.bw_out_mbps
+          - net.reachable
+          - load.req_rate
+      entity:
+        pattern: "^(h|svc|lnk)_[0-9a-f]{10}$"
+      unit:
+        enum: [pct, ms, mbps, count, bool, rps]
+
+  alert:
+    fields:
+      - type
+      - alert_id
+      - entity
+      - rule
+      - severity
+      - template_id
+      - params
+      - event_ts
+      - source_tz
+    constraints:
+      severity:
+        enum: [info, warning, high, critical]
+      entity:
+        pattern: "^(h|svc|lnk)_[0-9a-f]{10}$"
+
+  security_summary:
+    fields:
+      - type
+      - category
+      - severity
+      - count
+      - distinct_principals
+      - distinct_sources
+      - principals
+      - sources
+      - risk_score
+      - window_s
+      - event_ts
+      - source_tz
+    constraints:
+      category:
+        enum:
+          - auth.bruteforce
+          - auth.password_spray
+          - auth.spray
+          - auth.credential_stuffing
+          - auth.stuffing
+      severity:
+        enum: [info, warning, high, critical]
+      principals:
+        max_items: 20
+        pattern: "^usr_[0-9a-f]{10}$"
+      sources:
+        max_items: 20
+        pattern: "^src_[0-9a-f]{10}$"
+
+  health:
+    fields:
+      - type
+      - entity
+      - state
+      - reasons
+      - event_ts
+    constraints:
+      state:
+        enum: [excellent, good, fair, poor]
+      entity:
+        pattern: "^(h|svc|lnk)_[0-9a-f]{10}$"
+
+  topology:
+    fields:
+      - type
+      - edges
+      - event_ts
+    constraints:
+      edges:
+        max_items: 500
+
+redaction:
+  marker: "[REDACTED]"
+  patterns:
+    - private_key
+    - jwt
+    - aws_key
+    - api_token
+    - bearer_token
+    - password_assignment
+    - connection_string
+    - email
+    - credit_card
+    - ssn
+
+egress:
+  default_deny: true
+  fail_closed: true
+  max_payload_bytes: 1048576
+  canary_check: true
+  allow_list_enforced: true

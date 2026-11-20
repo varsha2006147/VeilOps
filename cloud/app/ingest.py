@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from cloud.app.contracts import Envelope
+from cloud.app.judge import record_rejection
 from cloud.app.security import authenticate_collector
 
 router = APIRouter(prefix="/v1", tags=["collector-ingest"])
@@ -60,6 +61,21 @@ async def ingest(request: Request):
     if count > request.app.state.settings.ingest_rate_per_minute:
         raise HTTPException(429, detail={"code": "RATE_LIMITED"}, headers={"Retry-After": "60"})
 
+    try:
+        return await _store(request, envelope, auth, body, payload_hash, sent_at, now)
+    except HTTPException as exc:
+        code = exc.detail.get("code") if isinstance(exc.detail, dict) else None
+        if code in ("SEQUENCE_CONFLICT", "IDEMPOTENCY_CONFLICT"):
+            # The storing transaction rolled back; count the refused delivery separately.
+            async with request.app.state.db_pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", envelope.tenant_id)
+                    await record_rejection(conn, envelope.tenant_id, auth.collector_id,
+                                           envelope.payload_id, envelope.seq, code.lower())
+        raise
+
+
+async def _store(request, envelope, auth, body, payload_hash, sent_at, now):
     async with request.app.state.db_pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", envelope.tenant_id)
@@ -70,6 +86,8 @@ async def ingest(request: Request):
             if existing:
                 if existing["payload_hash"] != payload_hash:
                     raise HTTPException(409, detail={"code": "IDEMPOTENCY_CONFLICT"})
+                await record_rejection(conn, envelope.tenant_id, auth.collector_id,
+                                       envelope.payload_id, envelope.seq, "duplicate_payload")
                 receipt = {
                     "payload_id": str(envelope.payload_id), "payload_hash": payload_hash,
                     "status": "duplicate", "received_at": existing["received_at"].isoformat(),

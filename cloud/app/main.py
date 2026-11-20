@@ -1,5 +1,6 @@
 """VeilOps regional Cloud Core API."""
 import asyncio
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
 import asyncpg
@@ -14,6 +15,8 @@ from cloud.app.crypto import ReceiptSigner, SecretBox
 from cloud.app.events import router as events_router
 from cloud.app.health import late_metric_recompute_loop, watchdog_loop
 from cloud.app.ingest import router as ingest_router
+from cloud.app.judge import judge_loop
+from cloud.app.judge_api import router as judge_router
 from cloud.app.processor import StreamProcessor, stream_outbox_publisher
 from cloud.app.reconciliation import router as reconciliation_router
 from cloud.app.settings import Settings
@@ -22,6 +25,7 @@ from cloud.app.settings import Settings
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = Settings()
+    app.state.started_at = datetime.now(timezone.utc)
     app.state.settings = settings
     app.state.secret_box = SecretBox.from_environment()
     app.state.receipt_signer = ReceiptSigner.from_environment()
@@ -37,6 +41,7 @@ async def lifespan(app: FastAPI):
     app.state.watchdog_stop = asyncio.Event()
     app.state.recompute_stop = asyncio.Event()
     app.state.publisher_stop = asyncio.Event()
+    app.state.judge_stop = asyncio.Event()
     processor = StreamProcessor(app.state.redis, app.state.db_pool, settings.ingest_stream)
     app.state.processor_task = asyncio.create_task(
         processor.run(app.state.processor_stop), name="veilops-stream-writer"
@@ -54,6 +59,10 @@ async def lifespan(app: FastAPI):
         late_metric_recompute_loop(app.state.db_pool, stop_event=app.state.recompute_stop),
         name="veilops-late-metric-recompute",
     )
+    app.state.judge_task = asyncio.create_task(
+        judge_loop(app.state.db_pool, stop_event=app.state.judge_stop),
+        name="veilops-judge-measurements",
+    )
     try:
         yield
     finally:
@@ -61,11 +70,14 @@ async def lifespan(app: FastAPI):
         app.state.watchdog_stop.set()
         app.state.recompute_stop.set()
         app.state.publisher_stop.set()
+        app.state.judge_stop.set()
+        app.state.judge_task.cancel()
         app.state.processor_task.cancel()
         app.state.watchdog_task.cancel()
         app.state.recompute_task.cancel()
         app.state.publisher_task.cancel()
-        for task in (app.state.processor_task, app.state.watchdog_task, app.state.recompute_task, app.state.publisher_task):
+        for task in (app.state.processor_task, app.state.watchdog_task, app.state.recompute_task, app.state.publisher_task,
+                     app.state.judge_task):
             try:
                 await task
             except asyncio.CancelledError:
@@ -83,6 +95,7 @@ app.include_router(ingest_router)
 app.include_router(control_router)
 app.include_router(reconciliation_router)
 app.include_router(dashboard_router)
+app.include_router(judge_router)
 app.include_router(events_router)
 app.include_router(actions_router)
 app.add_middleware(TenantJWTMiddleware)

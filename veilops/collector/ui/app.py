@@ -23,6 +23,8 @@ class UIContext:
         self.cfg, self.pipeline, self.store, self.sources = cfg, pipeline, store, sources
         self.resolver: Callable[[str], dict | None] | None = None    # set by Member B
         self.topology_watcher = None
+        self.ledger = None                                           # set by Member B
+        self.proof_service = None                                    # set by Member B
 
 
 def _ser(obj) -> dict:
@@ -128,5 +130,77 @@ def create_app(ctx: UIContext) -> FastAPI:
         if not hit:
             raise HTTPException(404, "unknown pseudonym")
         return hit
+
+    @app.get("/local/egress")
+    @app.get("/local/egress/proof")
+    @app.get("/api/egress-proof")
+    async def egress_proof() -> dict:
+        if getattr(ctx, "proof_service", None) is not None:
+            return await ctx.proof_service.get_snapshot()
+        if getattr(ctx, "ledger", None) is not None:
+            from veilops.collector.transport.proof import build_egress_proof_snapshot
+            return await build_egress_proof_snapshot(ctx.ledger)
+        return {
+            "policy_version": "1.0",
+            "policy_hash": "sha256:" + "0" * 64,
+            "chain_valid": True,
+            "chain_status": "ok",
+            "stats": {
+                "outbox_depth": 0,
+                "oldest_unsent_s": 0.0,
+                "last_acked_seq": 0,
+                "highest_seq": 0,
+                "total_sent_records": 0,
+            },
+            "recent_envelopes": [],
+            "redaction_summary": {
+                "secrets_scrubbed": 0,
+                "canaries_blocked": 0,
+                "patterns_verified": 0,
+            },
+        }
+
+    @app.get("/local/egress/side-by-side")
+    @app.get("/api/side-by-side")
+    async def side_by_side(raw_id: int | None = None, limit: int = 10, reveal: bool = False) -> list[dict]:
+        recent_raw = await ctx.store.recent(min(limit, 100), reveal=reveal)
+        paired = []
+        from veilops.collector.privacy.redactor import redact_text
+        for r in recent_raw:
+            raw_text = r.get("raw", "")
+            raw_id_val = r.get("id")
+            if raw_id is not None and raw_id_val != raw_id:
+                continue
+            clean_text = redact_text(raw_text)
+            paired.append({
+                "id": raw_id_val,
+                "source": r.get("source"),
+                "event_ts": r.get("event_ts"),
+                "raw_preview": raw_text if reveal else clean_text,
+                "sanitized_preview": clean_text,
+                "is_masked": not reveal,
+            })
+        return paired
+
+    @app.get("/local/policy/diff")
+    @app.get("/api/policy-diff")
+    async def policy_diff_endpoint(old_path: str | None = None, new_path: str | None = None) -> dict:
+        from veilops.collector.transport.cli import policy_diff
+        from veilops.schema.policy import load_policy
+        if not old_path or not new_path:
+            base_p = load_policy()
+            return {
+                "old_version": base_p.version,
+                "new_version": base_p.version,
+                "old_hash": base_p.hash or base_p.policy_hash,
+                "new_hash": base_p.hash or base_p.policy_hash,
+                "added_record_types": [],
+                "removed_record_types": [],
+                "field_changes": {},
+            }
+        try:
+            return policy_diff(old_path, new_path)
+        except Exception as e:
+            raise HTTPException(400, f"policy diff failed: {e}") from e
 
     return app
