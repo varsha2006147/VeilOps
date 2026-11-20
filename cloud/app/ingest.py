@@ -62,7 +62,7 @@ async def ingest(request: Request):
         raise HTTPException(429, detail={"code": "RATE_LIMITED"}, headers={"Retry-After": "60"})
 
     try:
-        return await _store(request, envelope, auth, body, payload_hash, sent_at, now)
+        return await _store(request, envelope, auth, body, payload_hash, sent_at, now, payload_uuid)
     except HTTPException as exc:
         code = exc.detail.get("code") if isinstance(exc.detail, dict) else None
         if code in ("SEQUENCE_CONFLICT", "IDEMPOTENCY_CONFLICT"):
@@ -75,7 +75,7 @@ async def ingest(request: Request):
         raise
 
 
-async def _store(request, envelope, auth, body, payload_hash, sent_at, now):
+async def _store(request, envelope, auth, body, payload_hash, sent_at, now, payload_uuid):
     async with request.app.state.db_pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", envelope.tenant_id)

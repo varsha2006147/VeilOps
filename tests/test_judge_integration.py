@@ -34,6 +34,11 @@ HASH = "sha256:" + "0" * 64
 TENANT_A, TENANT_B = "t_acme", "t_other"
 
 
+def entity_id(label: str) -> str:
+    """Return a deterministic entity ID matching the shared contract."""
+    return "h_" + hashlib.sha256(label.encode("utf-8")).hexdigest()[:10]
+
+
 def uuid7() -> uuid.UUID:
     ms, r = int(time.time() * 1000), secrets.randbits(74)
     return uuid.UUID(int=(ms << 80) | (7 << 76) | ((r >> 62) << 64) | (2 << 62) | (r & ((1 << 62) - 1)))
@@ -206,9 +211,9 @@ def heartbeat(client, ts: datetime, depth=0, collector="col_a", tenant=TENANT_A,
 
 def test_collection_to_dashboard_uses_original_event_ts(client):
     event_ts = now() - timedelta(seconds=3)
-    r, _, pid = send(client, 1, [metric("h_aaa", "cpu.util_pct", event_ts, 30, 31)])
+    r, _, pid = send(client, 1, [metric(entity_id("aaa"), "cpu.util_pct", event_ts, 30, 31)])
     assert r.status_code == 202, r.text
-    processed(client, "h_aaa")
+    processed(client, entity_id("aaa"))
     t = now()
     r = client.post("/api/v1/slo/render-ack", headers=A(), json={
         "record_key": f"payload:{pid}", "rendered_at": iso(t), "client_sent_at": iso(t)})
@@ -223,8 +228,8 @@ def test_collection_to_dashboard_uses_original_event_ts(client):
 
 def test_render_ack_corrects_browser_clock_offset(client):
     event_ts = now() - timedelta(seconds=2)
-    _, _, pid = send(client, 1, [metric("h_aaa", "cpu.util_pct", event_ts, 30, 31)])
-    processed(client, "h_aaa")
+    _, _, pid = send(client, 1, [metric(entity_id("aaa"), "cpu.util_pct", event_ts, 30, 31)])
+    processed(client, entity_id("aaa"))
     browser_now = now() - timedelta(seconds=90)          # browser clock 90 s slow
     r = client.post("/api/v1/slo/render-ack", headers=A(), json={
         "record_key": f"payload:{pid}", "rendered_at": iso(browser_now), "client_sent_at": iso(browser_now)})
@@ -247,12 +252,12 @@ def test_render_ack_never_trusts_client_event_time_or_unknown_records(client):
 def test_breach_to_alert_measured_per_injection(client):
     t0 = now()
     r = client.post("/api/v1/slo/injections", headers=A(), json={
-        "scenario": "cpu_drift", "entity": "h_cpu", "rule": "threshold.cpu.high", "injected_at": iso(t0 - timedelta(seconds=20))})
+        "scenario": "cpu_drift", "entity": entity_id("cpu"), "rule": "threshold.cpu.high", "injected_at": iso(t0 - timedelta(seconds=20))})
     assert r.status_code == 201, r.text
-    records = [metric("h_cpu", "cpu.util_pct", t0 - timedelta(seconds=15), 25, 30),
-               metric("h_cpu", "cpu.util_pct", t0 - timedelta(seconds=10), 60, 95),
-               metric("h_cpu", "cpu.util_pct", t0 - timedelta(seconds=5), 93, 97),
-               alert("h_cpu", "threshold.cpu.high", t0 - timedelta(seconds=3), 90.0)]
+    records = [metric(entity_id("cpu"), "cpu.util_pct", t0 - timedelta(seconds=15), 25, 30),
+               metric(entity_id("cpu"), "cpu.util_pct", t0 - timedelta(seconds=10), 60, 95),
+               metric(entity_id("cpu"), "cpu.util_pct", t0 - timedelta(seconds=5), 93, 97),
+               alert(entity_id("cpu"), "threshold.cpu.high", t0 - timedelta(seconds=3), 90.0)]
     assert send(client, 1, records)[0].status_code == 202
 
     def measured():
@@ -270,10 +275,10 @@ def test_breach_to_alert_measured_per_injection(client):
 def test_breach_to_alert_not_fabricated_without_breaching_windows(client):
     t0 = now()
     client.post("/api/v1/slo/injections", headers=A(), json={
-        "scenario": "cpu_drift", "entity": "h_nob", "rule": "threshold.cpu.high"})
-    send(client, 1, [metric("h_nob", "cpu.util_pct", t0 - timedelta(seconds=5), 20, 30),
-                     alert("h_nob", "threshold.cpu.high", t0, 90.0)])
-    processed(client, "h_nob")
+        "scenario": "cpu_drift", "entity": entity_id("nob"), "rule": "threshold.cpu.high"})
+    send(client, 1, [metric(entity_id("nob"), "cpu.util_pct", t0 - timedelta(seconds=5), 20, 30),
+                     alert(entity_id("nob"), "threshold.cpu.high", t0, 90.0)])
+    processed(client, entity_id("nob"))
     time.sleep(1.0)
     slo = client.get("/api/v1/slo", headers=A()).json()
     assert slo["breach_to_alert"]["all_time"]["count"] == 0
@@ -309,7 +314,7 @@ def _reconcile(client, a, b, collector="col_a"):
 def test_missing_sequence_detected(client):
     t = now()
     for seq in (1, 2, 4):
-        assert send(client, seq, [metric("h_m", "cpu.util_pct", t - timedelta(seconds=10 - seq), 1, 2)])[0].status_code == 202
+        assert send(client, seq, [metric(entity_id("m"), "cpu.util_pct", t - timedelta(seconds=10 - seq), 1, 2)])[0].status_code == 202
     out = _reconcile(client, 1, 4)
     assert out["missing_sequences"] == [3] and not out["reconciled"]
     summary = client.get("/api/v1/reconciliation", headers=A()).json()["collectors"]
@@ -320,14 +325,17 @@ def test_missing_sequence_detected(client):
 
 def test_duplicate_payload_rejected_and_counted(client):
     t = now() - timedelta(seconds=4)
-    r1, body, pid = send(client, 1, [metric("h_d", "cpu.util_pct", t, 10, 20)])
+    r1, body, pid = send(client, 1, [metric(entity_id("d"), "cpu.util_pct", t, 10, 20)])
     assert r1.status_code == 202
     again = signed(client, "POST", "/v1/ingest", body, **{"idempotency-key": pid})
     assert again.status_code == 200 and again.json()["status"] == "duplicate"
-    conflict, _, _ = send(client, 1, [metric("h_d", "cpu.util_pct", t, 99, 99)])  # same seq, new payload
+    conflict, _, _ = send(client, 1, [metric(entity_id("d"), "cpu.util_pct", t, 99, 99)])  # same seq, new payload
     assert conflict.status_code == 409
-    processed(client, "h_d")
-    rows = client.get("/api/v1/entities/h_d/metrics", headers=A()).json()["metrics"]
+    processed(client, entity_id("d"))
+    rows = client.get(
+        f"/api/v1/entities/{entity_id('d')}/metrics",
+        headers=A()
+    ).json()["metrics"]
     assert len(rows) == 1 and rows[0]["max"] == 20      # neither retry changed stored data
     rec = client.get("/api/v1/reconciliation", headers=A()).json()["collectors"]
     dup = [c for c in rec if c["collector_id"] == "col_a"][0]["duplicates_rejected"]
@@ -336,10 +344,13 @@ def test_duplicate_payload_rejected_and_counted(client):
 
 def test_out_of_order_delivery_keeps_event_time_order(client):
     t = now() - timedelta(seconds=30)
-    send(client, 2, [metric("h_o", "cpu.util_pct", t + timedelta(seconds=10), 50, 60)])
-    send(client, 1, [metric("h_o", "cpu.util_pct", t, 10, 20)])
-    processed(client, "h_o", n=2)
-    rows = client.get("/api/v1/entities/h_o/metrics", headers=A()).json()["metrics"]
+    send(client, 2, [metric(entity_id("o"), "cpu.util_pct", t + timedelta(seconds=10), 50, 60)])
+    send(client, 1, [metric(entity_id("o"), "cpu.util_pct", t, 10, 20)])
+    processed(client, entity_id("o"), n=2)
+    rows = client.get(
+        f"/api/v1/entities/{entity_id('o')}/metrics",
+        headers=A()
+    ).json()["metrics"]
     times = [datetime.fromisoformat(r["event_ts"]) for r in rows]
     assert times == sorted(times, reverse=True) and [r["max"] for r in rows] == [60, 20]
     assert _reconcile(client, 1, 2)["reconciled"]
@@ -351,11 +362,11 @@ def test_outage_recovery_zero_loss_zero_duplicates(client):
     heartbeat(client, t - timedelta(seconds=70), depth=0)
     sent = {}
     for seq in (1, 2):
-        _, sent[seq], _ = send(client, seq, [metric("h_r", "cpu.util_pct", t - timedelta(seconds=70 - seq * 5), 30, 31)])
+        _, sent[seq], _ = send(client, seq, [metric(entity_id("r"), "cpu.util_pct", t - timedelta(seconds=70 - seq * 5), 30, 31)])
     # outage: no traffic for ~50 s; collector keeps 4 payloads in its outbox
     heartbeat(client, t - timedelta(seconds=12), depth=4)
     for seq in (3, 4, 5, 6):
-        r, sent[seq], pid = send(client, seq, [metric("h_r", "cpu.util_pct", t - timedelta(seconds=60 - seq * 5), 30, 31)])
+        r, sent[seq], pid = send(client, seq, [metric(entity_id("r"), "cpu.util_pct", t - timedelta(seconds=60 - seq * 5), 30, 31)])
         assert r.status_code == 202
         if seq == 4:  # ack lost on the way back: collector retries the same payload
             again = signed(client, "POST", "/v1/ingest", sent[4], **{"idempotency-key": pid})
@@ -363,7 +374,7 @@ def test_outage_recovery_zero_loss_zero_duplicates(client):
     heartbeat(client, t - timedelta(seconds=5), depth=0)
     out = _reconcile(client, 1, 6)
     assert out["reconciled"] and out["missing_sequences"] == [] and out["duplicates_rejected"] == 1
-    processed(client, "h_r", n=6)
+    processed(client, entity_id("r"), n=6)
 
     slo = client.get("/api/v1/slo", headers=A()).json()
     rec = slo["reconciliation"]
@@ -378,7 +389,7 @@ def test_outage_recovery_zero_loss_zero_duplicates(client):
 def test_quality_metrics_come_from_alerts_incidents_and_feedback(client):
     t = now()
     ids = [uuid.uuid4() for _ in range(3)]
-    send(client, 1, [alert(f"h_q{i}", "threshold.cpu.high", t - timedelta(seconds=2), 90.0, ids[i]) for i in range(3)])
+    send(client, 1, [alert(entity_id(f"q{i}"), "threshold.cpu.high", t - timedelta(seconds=2), 90.0, ids[i]) for i in range(3)])
     wait_for(lambda: len(client.get("/api/v1/alerts", headers=A()).json()["alerts"]) == 3)
     import asyncio, asyncpg
 
@@ -399,8 +410,8 @@ def test_quality_metrics_come_from_alerts_incidents_and_feedback(client):
 # ------------------------------------------------------------------ 9. tenant isolation
 
 def test_tenant_isolation_rest_csv_and_feedback(client):
-    _, _, pid = send(client, 1, [metric("h_iso", "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
-    processed(client, "h_iso")
+    _, _, pid = send(client, 1, [metric(entity_id("iso"), "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
+    processed(client, entity_id("iso"))
     t = iso(now())
     assert client.post("/api/v1/slo/render-ack", headers=A(), json={"record_key": f"payload:{pid}", "rendered_at": t}).status_code == 202
     # tenant B cannot measure, see, export or label tenant A's data
@@ -412,7 +423,7 @@ def test_tenant_isolation_rest_csv_and_feedback(client):
     rows = list(csv.reader(io.StringIO(client.get("/api/v1/slo/export.csv", headers=B()).text)))
     assert len(rows) == 1  # header only
     a_alert = uuid.uuid4()
-    send(client, 2, [alert("h_iso", "threshold.cpu.high", now(), 90.0, a_alert)])
+    send(client, 2, [alert(entity_id("iso"), "threshold.cpu.high", now(), 90.0, a_alert)])
     wait_for(lambda: client.get("/api/v1/alerts", headers=A()).json()["alerts"])
     assert client.post(f"/api/v1/alerts/{a_alert}/feedback", headers=B(), json={"verdict": "false_alarm"}).status_code == 404
     # a tenant_id in the body is never honoured
@@ -424,8 +435,8 @@ def test_tenant_isolation_rest_csv_and_feedback(client):
 # ------------------------------------------------------------------ 10. CSV export
 
 def test_csv_export_matches_persisted_samples(client):
-    _, _, pid = send(client, 1, [metric("h_csv", "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
-    processed(client, "h_csv")
+    _, _, pid = send(client, 1, [metric(entity_id("csv"), "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
+    processed(client, entity_id("csv"))
     t = iso(now())
     ack = client.post("/api/v1/slo/render-ack", headers=A(), json={"record_key": f"payload:{pid}", "rendered_at": t}).json()
     _reconcile(client, 1, 1)
@@ -469,8 +480,8 @@ def test_invalid_measurement_input_rejected(client):
 # ------------------------------------------------------------------ 12. Redis failure
 
 def test_redis_failures(client, monkeypatch):
-    _, _, pid = send(client, 1, [metric("h_rf", "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
-    processed(client, "h_rf")
+    _, _, pid = send(client, 1, [metric(entity_id("rf"), "cpu.util_pct", now() - timedelta(seconds=2), 1, 2)])
+    processed(client, entity_id("rf"))
     redis = client.app.state.redis
 
     async def boom(*a, **k):
@@ -481,6 +492,6 @@ def test_redis_failures(client, monkeypatch):
     r = client.post("/api/v1/slo/render-ack", headers=A(), json={"record_key": f"payload:{pid}", "rendered_at": t})
     assert r.status_code == 202 and r.json()["recorded"]
     monkeypatch.setattr(redis, "ping", boom)
-    r, _, _ = send(client, 2, [metric("h_rf", "cpu.util_pct", now(), 1, 2)])
+    r, _, _ = send(client, 2, [metric(entity_id("rf"), "cpu.util_pct", now(), 1, 2)])
     assert r.status_code == 503 and r.json()["detail"]["code"] == "STREAM_UNAVAILABLE"
     assert _reconcile(client, 1, 2)["missing_sequences"] == [2]  # refused payload is visible as missing
