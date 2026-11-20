@@ -10,6 +10,7 @@ import httpx
 
 from veilops.collector.contracts import LocalSignal, SourceBus, WindowAgg
 from veilops.collector.privacy.serializer import RecordSerializer, SerializationError
+from veilops.collector.transport.guard import EgressGuard, EgressGuardError
 from veilops.collector.transport.outbox import OutboxEntry, OutboxLedger
 from veilops.collector.transport.signer import EnvelopeSigner, canonical_bytes
 from veilops.schema.envelope import Envelope
@@ -18,6 +19,16 @@ from veilops.schema.wire import Heartbeat, Receipt
 # Aliases
 IngestReceipt = Receipt
 HeartbeatPayload = Heartbeat
+
+
+def compute_backoff_s(
+    attempt: int,
+    base_s: float = 0.25,
+    max_s: float = 10.0,
+    factor: float = 2.0,
+) -> float:
+    """Compute exponential backoff delay with upper cap."""
+    return min(max_s, base_s * (factor ** max(0, attempt)))
 
 
 class TransportSender:
@@ -33,14 +44,27 @@ class TransportSender:
         ingest_url: str | None = None,
         heartbeat_url: str | None = None,
         timeout: float = 10.0,
+        egress_guard: EgressGuard | None = None,
+        verify_key_bytes: bytes | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.outbox = outbox
         self.signer = signer
         self.ingest_url = ingest_url or f"{self.base_url}/v1/ingest"
         self.heartbeat_url = heartbeat_url or f"{self.base_url}/v1/heartbeat"
+        self.egress_guard = egress_guard
+        self.verify_key_bytes = verify_key_bytes
         self._external_client = client is not None
         self._client = client or httpx.AsyncClient(timeout=timeout)
+
+    @staticmethod
+    def compute_backoff_s(
+        attempt: int,
+        base_s: float = 0.25,
+        max_s: float = 10.0,
+        factor: float = 2.0,
+    ) -> float:
+        return compute_backoff_s(attempt, base_s, max_s, factor)
 
     async def close(self) -> None:
         """Close HTTP client if owned internally."""
@@ -58,6 +82,14 @@ class TransportSender:
 
         acked_count = 0
         for entry in pending:
+            # Pre-egress fail-closed canary and secret scan
+            if self.egress_guard:
+                try:
+                    self.egress_guard.scan_and_guard_payload(entry.envelope_json)
+                except EgressGuardError:
+                    # Halt egress queue immediately (fail-closed)
+                    break
+
             await self.outbox.record_attempt(entry.payload_id)
 
             headers = {
@@ -88,6 +120,17 @@ class TransportSender:
                 except Exception:
                     receipt = None
 
+                # Verify receipt cryptographic signature if key is configured
+                if self.verify_key_bytes and receipt and receipt.sig:
+                    receipt_dict = receipt.model_dump(mode="json")
+                    receipt_no_sig = {k: v for k, v in receipt_dict.items() if k != "sig"}
+                    canonical = canonical_bytes(receipt_no_sig)
+                    if not EnvelopeSigner.verify_signature(
+                        self.verify_key_bytes, canonical, receipt.sig
+                    ):
+                        # Invalid SaaS receipt signature: fail-closed, do not ack
+                        break
+
                 await self.outbox.mark_acked(entry.payload_id, receipt)
                 acked_count += 1
             elif resp.status_code == 429 or resp.status_code >= 500:
@@ -98,6 +141,30 @@ class TransportSender:
                 break
 
         return acked_count
+
+    async def flush_with_backoff(
+        self,
+        *,
+        max_retries: int = 4,
+        base_s: float = 0.25,
+        max_s: float = 10.0,
+        limit: int = 50,
+    ) -> int:
+        """Flush pending entries with exponential backoff on transient errors."""
+        total_acked = 0
+        for attempt in range(max_retries):
+            acked = await self.flush_once(limit=limit)
+            total_acked += acked
+
+            pending = await self.outbox.next_pending(limit=1)
+            if not pending:
+                break
+
+            if attempt < max_retries - 1:
+                delay = compute_backoff_s(attempt, base_s=base_s, max_s=max_s)
+                await asyncio.sleep(delay)
+
+        return total_acked
 
     async def send_heartbeat(self, heartbeat: Heartbeat) -> bool:
         """Sign and transmit a heartbeat payload."""
