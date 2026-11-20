@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VeilOps Collector · local</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --ink:#e7e9ee; --mute:#8b93a7; --acc:#5aa9ff;
+          --ok:#35c28a; --warn:#f0b429; --bad:#ef5350; --info:#7c8cff; }
+  * { box-sizing:border-box } body { margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink) }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; border-bottom:1px solid var(--line) }
+  header b { font-size:16px } .pill { padding:2px 8px; border-radius:99px; font-size:12px; border:1px solid var(--line); color:var(--mute) }
+  .local { color:var(--warn); border-color:var(--warn) }
+  nav { display:flex; gap:4px; padding:8px 20px; border-bottom:1px solid var(--line) }
+  nav button { background:none; border:0; color:var(--mute); padding:6px 12px; border-radius:6px; cursor:pointer; font:inherit }
+  nav button.on { background:var(--panel); color:var(--ink) }
+  main { padding:16px 20px } .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px }
+  .card h4 { margin:0 0 6px; font-size:12px; color:var(--mute); font-weight:500; text-transform:uppercase; letter-spacing:.04em }
+  .big { font-size:22px; font-weight:600 }
+  table { width:100%; border-collapse:collapse; font-size:13px } th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top }
+  th { color:var(--mute); font-weight:500 } td.mono, .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; word-break:break-all }
+  .sev-critical{color:var(--bad)} .sev-high{color:#ff8a65} .sev-warning{color:var(--warn)} .sev-info{color:var(--info)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .row { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap }
+  .btn { background:var(--panel); color:var(--ink); border:1px solid var(--line); padding:6px 12px; border-radius:6px; cursor:pointer; font:inherit }
+  .btn:hover { border-color:var(--acc) } .hide { display:none } .note { color:var(--mute); font-size:12px }
+</style>
+</head>
+<body>
+<header>
+  <b>VeilOps Collector</b><span class="pill local">TIER 1 · CUSTOMER ENVIRONMENT · RAW DATA STAYS HERE</span>
+  <span class="pill" id="who">…</span><span class="pill" id="cfg">…</span>
+</header>
+<nav id="tabs">
+  <button data-t="overview" class="on">Overview</button><button data-t="raw">Raw (local only)</button>
+  <button data-t="signals">Local detections</button><button data-t="windows">Aggregates</button>
+  <button data-t="chaos">Chaos</button><button data-t="egress">Egress proof ↗</button>
+</nav>
+<main>
+  <section id="overview"><div class="grid" id="kpis"></div><h3>Sources</h3><table id="srcs"></table></section>
+  <section id="raw" class="hide">
+    <div class="row"><label><input type="checkbox" id="reveal"> Reveal secrets (local admin · audited)</label>
+      <select id="rawsrc" class="btn"><option value="">all sources</option><option>stream</option><option>sim</option><option>host</option><option>probe</option><option>syslog</option></select>
+      <input id="rawq" class="btn" placeholder="search raw text (e.g. db connect)" size="28">
+      <span class="note">Raw lines never leave this machine. Masking here is display-only; egress redaction is the privacy pipeline.</span></div>
+    <table><thead><tr><th>#</th><th>source</th><th>event time (UTC)</th><th>raw</th></tr></thead><tbody id="rawb"></tbody></table>
+  </section>
+  <section id="signals" class="hide"><table><thead><tr><th>event time (UTC)</th><th>rule</th><th>severity</th><th>entity (local name)</th><th>params</th><th>risk</th><th>priority</th></tr></thead><tbody id="sigb"></tbody></table></section>
+  <section id="windows" class="hide"><table><thead><tr><th>window (UTC)</th><th>entity</th><th>metric</th><th>avg</th><th>min</th><th>max</th><th>p95</th><th>n</th></tr></thead><tbody id="winb"></tbody></table></section>
+  <section id="chaos" class="hide"><p class="note" id="chaosnote"></p><div class="row" id="chaosbtns"></div>
+    <table><thead><tr><th>scenario</th><th>injected at (UTC)</th><th>target</th><th>duration</th></tr></thead><tbody id="injb"></tbody></table></section>
+  <section id="egress" class="hide"><p class="note">The Egress Proof Panel is served at <a href="/egress" style="color:var(--acc)">/egress</a> by the privacy &amp; transport module.</p></section>
+</main>
+<script>
+const $ = s => document.querySelector(s), esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let tab = 'overview';
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  if (b.dataset.t === 'egress') { location.href = '/egress'; return; }
+  tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('hide', s.id !== tab)); refresh();
+});
+const j = async u => (await fetch(u)).json();
+const kpi = (k, v) => `<div class="card"><h4>${esc(k)}</h4><div class="big">${esc(v)}</div></div>`;
+async function overview() {
+  const s = await j('/local/status'), p = s.pipeline;
+  $('#who').textContent = `${s.collector_id} · ${s.tenant_id} · region ${s.region}`;
+  $('#cfg').textContent = `config ${s.config_hash} · downstream ${s.downstream}`;
+  $('#kpis').innerHTML = kpi('raw events (local)', s.raw_rows) + kpi('metric samples', p.samples) + kpi('windows out', p.windows_out)
+    + kpi('local detections', p.signals_out) + kpi('late windows re-emitted', p.late_windows)
+    + kpi('ingest lag p95', p.ingest_lag_p95_ms == null ? '–' : Math.round(p.ingest_lag_p95_ms) + ' ms')
+    + kpi('bus depth (to privacy)', p.bus_windows_depth + p.bus_signals_depth) + kpi('uptime', p.uptime_s + ' s');
+  $('#srcs').innerHTML = '<tr><th>source</th><th>status</th><th>events</th><th>last event (UTC)</th><th>detail</th></tr>' +
+    Object.entries(s.sources).map(([n, x]) => `<tr><td>${esc(n)}</td><td class="${x.ok ? 'ok' : 'bad'}">${x.ok ? 'OK' : 'DOWN'}</td><td>${x.events}</td><td class="mono">${esc(x.last_event_ts)}</td><td>${esc(x.detail)}</td></tr>`).join('');
+}
+async function raw() {
+  const rows = await j(`/local/raw?limit=150&reveal=${$('#reveal').checked}&source=${$('#rawsrc').value}&q=${encodeURIComponent($('#rawq').value)}`);
+  $('#rawb').innerHTML = rows.map(r => `<tr><td>${r.id}</td><td>${esc(r.source)}</td><td class="mono">${esc(r.event_ts)}</td><td class="mono">${esc(r.raw)}</td></tr>`).join('');
+}
+async function signals() {
+  const rows = await j('/local/signals?limit=200');
+  $('#sigb').innerHTML = rows.map(s => `<tr><td class="mono">${esc(s.event_ts)}</td><td>${esc(s.rule)}</td><td class="sev-${s.severity}">${esc(s.severity)}</td><td>${esc(s.entity)}</td><td class="mono">${esc(JSON.stringify(s.params))}${s.subjects.length ? '<br>subjects: ' + esc(s.subjects.join(', ')) : ''}${s.sources.length ? '<br>sources: ' + esc(s.sources.join(', ')) : ''}</td><td>${s.risk_score || ''}</td><td>${s.priority ? '⚡' : ''}</td></tr>`).join('');
+}
+async function windows() {
+  const rows = await j('/local/windows?limit=150');
+  $('#winb').innerHTML = rows.map(w => `<tr><td class="mono">${esc(w.event_ts)}</td><td>${esc(w.entity)}</td><td>${esc(w.metric)}</td><td>${w.avg}</td><td>${w.min}</td><td>${w.max}</td><td>${w.p95}</td><td>${w.count}</td></tr>`).join('');
+}
+async function chaos() {
+  const c = await j('/local/chaos');
+  $('#chaosnote').textContent = c.enabled ? 'Inject a Section 8 scenario into the simulated source. Each injection is audited and timestamped for Judge Mode.' : 'Chaos is disabled (DEMO_MODE=1 and sim source required).';
+  if (!$('#chaosbtns').childElementCount) $('#chaosbtns').innerHTML = c.scenarios.map(s => `<button class="btn" ${c.enabled ? '' : 'disabled'} onclick="inject('${s}')">${s}</button>`).join('');
+  $('#injb').innerHTML = c.injections.slice().reverse().map(i => `<tr><td>${esc(i.scenario)}</td><td class="mono">${esc(i.injected_at)}</td><td>${esc(i.target || 'default')}</td><td>${i.duration_s}s</td></tr>`).join('');
+}
+async function inject(s) { await fetch('/local/chaos/' + s, {method: 'POST'}); chaos(); }
+const views = {overview, raw, signals, windows, chaos, egress: async () => {}};
+async function refresh() { try { await views[tab](); } catch (e) { console.warn(e); } }
+$('#reveal').onchange = refresh; $('#rawsrc').onchange = refresh; $('#rawq').oninput = refresh;
+refresh(); setInterval(refresh, 1500);
+</script>
+</body>
+</html>
