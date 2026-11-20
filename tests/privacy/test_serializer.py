@@ -227,3 +227,19 @@ def test_load_rate_metric_with_rps_unit_is_accepted():
     )
     assert rec.unit == "rps" and rec.metric == "load.req_rate"
 
+
+def test_link_alert_before_any_window_uses_signal_entity_kind_and_template_id():
+    ser, ps = make_serializer()
+    sig = signal(
+        rule="threshold.loss.high",
+        entity="core-sw1",
+        entity_kind="link",
+        template_id="T_LOSS_HIGH",
+    )
+    rec = ser.serialize_signal(sig)
+    assert isinstance(rec, AlertRecord)
+    assert rec.entity.startswith("lnk_")
+    assert rec.entity == ps.pseudonymize("link", "core-sw1")
+    assert rec.template_id == "T_LOSS_HIGH"
+
+

@@ -151,13 +151,13 @@ class RecordSerializer:
     def _alert(self, s: LocalSignal, alert_id: "str | None") -> AlertRecord:
         # Unknown entity kinds fall back to "host" (documented limitation: a link/service
         # alert seen before any of its windows would get a different pseudonym).
-        kind = self._kinds.get(s.entity, "host")
+        kind = (s.entity_kind if (s.entity_kind and s.entity_kind != "host") else None) or self._kinds.get(s.entity, "host")
         if s.kind == "log_category":
             rule = s.rule if s.rule.startswith("log.") else "log." + s.rule
             template = "T_LOG_CATEGORY"
         else:
             rule = s.rule
-            template = _template_id(s.rule)
+            template = s.template_id or _template_id(s.rule)
         sources: "dict[str, Callable[[], Any]]" = {
             "alert_id": lambda: alert_id or str(uuid_utils.uuid7()),
             "entity": lambda: self._ps.pseudonymize(kind, s.entity),
