@@ -49,8 +49,10 @@ services:
       DASHBOARD_JWT_SECRET: ${DASHBOARD_JWT_SECRET:?Set a random dashboard JWT signing secret of at least 32 characters}
       DASHBOARD_JWT_ISSUER: veilops-control
       DASHBOARD_JWT_AUDIENCE: veilops-dashboard
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
     ports:
-      - "127.0.0.1:8000:8000"
+      # Two-laptop demo: CLOUD_BIND=0.0.0.0 so the customer laptop can reach the API over the LAN.
+      - "${CLOUD_BIND:-127.0.0.1}:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy

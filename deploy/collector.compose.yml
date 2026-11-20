@@ -43,6 +43,7 @@ services:
       SIM_ENABLED: "false"
       INGEST_URL: ${INGEST_URL_IN:-https://in.ingest.veilops.local/v1}
       VEILOPS_ENROLLMENT_TOKEN: ${ENROLL_TOKEN_ACME:-}
+      CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
       DEMO_MODE: "1"
       SIM_CONTROL_URL: http://sim:9000
       SANDBOX_ENABLED: "true"
