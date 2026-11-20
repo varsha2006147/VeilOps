@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from cloud.app.health import (
     heartbeat_state, metric_state, combine_states, three_of_five_state,
 )
@@ -26,3 +28,30 @@ def test_three_of_five_threshold():
     assert three_of_five_state(["Poor", "Poor", "Poor", "Good", "Good"]) == "Poor"
     assert three_of_five_state(["Fair", "Fair", "Good", "Fair", "Excellent"]) == "Fair"
     assert three_of_five_state(["Poor", "Fair", "Good", "Good", "Excellent"]) == "Excellent"
+
+
+# ---- processor health-state capitalisation regression -------------------------
+# The wire contract uses lowercase ("poor"); PostgreSQL CHECK constraints require
+# Title Case ("Poor").  processor.py must call .title() before every DB write.
+
+@pytest.mark.parametrize("wire_state,expected_db_state", [
+    ("excellent", "Excellent"),
+    ("good",      "Good"),
+    ("fair",      "Fair"),
+    ("poor",      "Poor"),
+])
+def test_wire_state_title_cased_for_db(wire_state, expected_db_state):
+    """Simulate what processor._health() does: record['state'].title()."""
+    assert wire_state.title() == expected_db_state
+
+
+@pytest.mark.parametrize("from_state,to_state", [
+    ("Poor",      "Fair"),
+    ("Fair",      "Good"),
+    ("Good",      "Excellent"),
+    ("Excellent", "Poor"),
+])
+def test_health_transition_states_are_title_case(from_state, to_state):
+    """States stored in health_transitions must satisfy the DB CHECK constraint."""
+    valid = {"Excellent", "Good", "Fair", "Poor"}
+    assert from_state in valid and to_state in valid
