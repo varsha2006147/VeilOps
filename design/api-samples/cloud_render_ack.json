@@ -1,0 +1,10 @@
+{
+  "request": "POST /api/v1/slo/render-ack",
+  "note": "body: {record_key:'payload:<payload_id from SSE telemetry_processed>', rendered_at, client_sent_at} (ISO with Z).",
+  "response": {
+    "accepted": true,
+    "recorded": true,
+    "delay_ms": 7384,
+    "clock_offset_ms": 384
+  }
+}

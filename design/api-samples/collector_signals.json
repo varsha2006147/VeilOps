@@ -1,0 +1,51 @@
+{
+  "request": "GET http://localhost:8100/local/signals?limit=3",
+  "note": "collector-local only (real names visible here, never in the cloud).",
+  "response": [
+    {
+      "kind": "threshold",
+      "rule": "threshold.cpu.high.resolved",
+      "severity": "info",
+      "entity": "app-01",
+      "event_ts": "2026-11-20T18:43:09.693Z",
+      "source_tz": "Asia/Kolkata",
+      "params": {
+        "value": 41.406,
+        "threshold": 90.0,
+        "peak": 100.0
+      },
+      "subjects": [],
+      "sources": [],
+      "risk_score": 0,
+      "window_s": 0,
+      "priority": false,
+      "raw_ids": [],
+      "entity_kind": "host",
+      "template_id": "T_CPU_HIGH_RESOLVED"
+    },
+    {
+      "kind": "threshold",
+      "rule": "threshold.cpu.high",
+      "severity": "warning",
+      "entity": "app-01",
+      "event_ts": "2026-11-20T18:42:17.429Z",
+      "source_tz": "Asia/Kolkata",
+      "params": {
+        "value": 91.046,
+        "threshold": 90.0,
+        "breaching": 3,
+        "of": 5
+      },
+      "subjects": [],
+      "sources": [],
+      "risk_score": 0,
+      "window_s": 0,
+      "priority": true,
+      "raw_ids": [
+        1891
+      ],
+      "entity_kind": "host",
+      "template_id": "T_CPU_HIGH"
+    }
+  ]
+}
