@@ -47,7 +47,7 @@ export function IncidentDetail() {
   const [rec, setRec] = useState<any>(null);
   const [pos, setPos] = useState<number | null>(null);
   const recId = (det?.evidence_links ?? []).find((l: any) => l.recommendation_id)?.recommendation_id;
-  useEffect(() => { if (recId) cloud(`/api/v1/recommendations/${recId}`).then((r) => setRec(r.recommendation)).catch(() => {}); }, [recId]);
+  useEffect(() => { if (recId) cloud(`/api/v1/recommendations/${recId}`).then((r) => setRec(r.recommendation)).catch(() => {}); }, [recId, tick]);
   if (err) return <section className="page"><div className="empty">Could not load this incident ({err}).</div></section>;
   if (!tl) return <section className="page"><div className="muted">Loading…</div></section>;
   const inc = tl.incident, alerts: any[] = tl.alerts ?? [], rank: any[] = tl.root_cause_ranking ?? [], ev: any[] = tl.evidence ?? [];
@@ -82,7 +82,7 @@ export function IncidentDetail() {
                   <span className="mono" style={{ fontSize: 11.5, color: a.entity === root ? "var(--hi)" : "var(--t3)" }}>{short(a.entity)}</span>
                   <span style={{ position: "relative", height: 10 }}>
                     <span title={`${a.rule} · ${a.occurrences}×`} style={{ position: "absolute", left: `${s}%`, width: `${Math.max(1, e - s)}%`, top: 0, bottom: 0, borderRadius: 3, background: SEV[a.severity] ?? "var(--t3)" }} />
-                    <span className="muted" style={{ position: "absolute", left: `calc(${Math.min(e, 70)}% + 6px)`, top: -2, fontSize: 11, whiteSpace: "nowrap" }}>{a.rule}</span>
+                    <span className="muted" style={{ position: "absolute", ...(e > 62 ? { right: `calc(${100 - s}% + 8px)` } : { left: `calc(${e}% + 8px)` }), top: -2, fontSize: 11, whiteSpace: "nowrap" }}>{a.rule} · {a.occurrences}×</span>
                   </span>
                 </div>
               );
@@ -118,7 +118,7 @@ export function IncidentDetail() {
             </Link>
           ))}
         </div>
-        <FixFlow rec={rec} rule={inc.root_cause_rule} target={root} />
+        <FixFlow rec={rec} rule={inc.root_cause_rule} target={rec?.target_entity ?? root} />
         <span className="h2">Was this alert right?</span>
         {alerts.slice(0, 4).map((a) => <Feedback key={a.alert_id} a={a} />)}
       </aside>
@@ -145,7 +145,10 @@ function FixFlow({ rec, rule, target }: { rec: any; rule?: string; target?: stri
   const role = session()?.user.role;
   const type = rec?.action_type ?? guessFix(rule);
   const mine = (acts?.actions ?? []).find((a: any) => a.action_type === type && a.policy_ref === `incident:${target}`);
-  const collector = fleet?.collectors?.[0]?.collector_id;
+  // Send the fix to the collector that reports the target entity; fall back to the most recently seen one.
+  const owner = (fleet?.entities ?? []).find((e: any) => e.entity === (rec?.target_entity ?? target))?.collector_id;
+  const freshest = [...(fleet?.collectors ?? [])].sort((a: any, b: any) => String(b.last_heartbeat).localeCompare(String(a.last_heartbeat)))[0]?.collector_id;
+  const collector = owner ?? freshest;
   const steps = ["Requested", "Approved", "Delivered", "Executed"];
   const stage = !mine ? -1 : mine.status === "pending" ? 0 : mine.status === "approved" ? 1 : mine.status === "delivered" ? 2 : 3;
   const result = j<any>(mine?.result, null);

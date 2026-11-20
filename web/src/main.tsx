@@ -13,7 +13,7 @@ import { IncidentDetail, IncidentList } from "./cloud/Incidents";
 import Entity from "./cloud/Entity";
 import { Boundary, Reliability } from "./cloud/Proof";
 import { CloudAudit, Collectors } from "./cloud/Fleet";
-import { CloudLink, Feed, Lookup, LocalAlerts, SiteAudit, SiteBoundary } from "./site/Site";
+import { BoundaryCloud, CodesAudit, Overview } from "./site/Site";
 
 function CloudApp() {
   const [ready, setReady] = useState(false);
@@ -57,12 +57,9 @@ function SiteApp() {
   const L = (crumb: string, el: ReactNode) => <SiteLayout crumb={crumb}>{el}</SiteLayout>;
   return (
     <Routes>
-      <Route path="/" element={L("Local feed", <Feed />)} />
-      <Route path="/boundary" element={L("Boundary", <SiteBoundary />)} />
-      <Route path="/cloud-link" element={L("Cloud link", <CloudLink />)} />
-      <Route path="/lookup" element={L("Look up a code", <Lookup />)} />
-      <Route path="/alerts" element={L("Local alerts", <LocalAlerts />)} />
-      <Route path="/audit" element={L("Audit", <SiteAudit />)} />
+      <Route path="/" element={L("Overview", <Overview />)} />
+      <Route path="/boundary" element={L("Boundary & cloud", <BoundaryCloud />)} />
+      <Route path="/codes" element={L("Codes & audit", <CodesAudit />)} />
       <Route path="*" element={L("Not found", <div className="page empty">No such page.</div>)} />
     </Routes>
   );

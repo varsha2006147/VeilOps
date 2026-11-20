@@ -50,26 +50,34 @@ export function CloudLayout({ crumb, live, children }: { crumb: string; live: bo
   );
 }
 
-const SIMS: [string, string][] = [["cpu_drift", "CPU runaway"], ["latency", "Link failure"], ["secret", "Secret in log"], ["failed_logins", "Brute force"]];
+const SIMS: [string, string, string][] = [
+  ["cpu_drift", "CPU runaway", "CPU on one host climbs for ~75 s. Watch Local alerts on the right, then an incident on the cloud dashboard within ~30 s."],
+  ["latency", "Link failure", "The core network link starts dropping packets. The cloud should name the link as root cause and suggest a failover."],
+  ["secret", "Secret in log", "A log line with a password is injected. Watch “secrets scrubbed” go up; the secret never leaves this machine."],
+  ["failed_logins", "Brute force", "Repeated failed logins from one IP. A security alert appears here with the real user and IP; the cloud only gets codes."],
+];
 
 export function SiteLayout({ crumb, children }: { crumb: string; children: ReactNode }) {
   const [status] = usePoll<any>(() => local("/local/status"), 5000);
   const [link] = usePoll<any>(() => local("/local/cloud"), 2000);
   const [fired, setFired] = useState<string | null>(null);
   useEffect(() => { if (APP !== "site") return; document.title = "VeilOps Collector"; }, []);
-  async function fire(s: string) { setFired(s); await local(`/local/chaos/${s}`, { method: "POST" }).catch(() => {}); setTimeout(() => setFired(null), 1500); }
+  const [note, setNote] = useState<string | null>(null);
+  async function fire(s: string) {
+    setFired(s);
+    const ok = await local(`/local/chaos/${s}`, { method: "POST" }).then(() => true).catch(() => false);
+    setNote(ok ? SIMS.find((x) => x[0] === s)![2] : "Simulation is not available on this collector (DEMO_MODE off).");
+    setTimeout(() => setFired(null), 1500); setTimeout(() => setNote(null), 9000);
+  }
   const online = link?.online !== false;
   return (
     <div className="app">
       <aside className="nav" aria-label="Main">
         <div className="brand">VeilOps Collector</div>
         <div className="brand-sub">runs inside {status?.tenant_id ?? "the customer"} · {status?.collector_id ?? "…"}</div>
-        <NavLink to="/" end>Local feed</NavLink>
-        <NavLink to="/boundary">Boundary</NavLink>
-        <NavLink to="/cloud-link">Cloud link</NavLink>
-        <NavLink to="/lookup">Look up a code</NavLink>
-        <NavLink to="/alerts">Local alerts</NavLink>
-        <NavLink to="/audit">Audit</NavLink>
+        <NavLink to="/" end>Overview</NavLink>
+        <NavLink to="/boundary">Boundary & cloud</NavLink>
+        <NavLink to="/codes">Codes & audit</NavLink>
         <div style={{ marginTop: "auto", border: "1px solid var(--line2)", borderRadius: 6, padding: 10, fontSize: 11.5, color: "var(--t3)", lineHeight: 1.55 }}>
           This screen is on the customer's network. Real names and raw logs are shown here only; viewing them is logged.
         </div>
@@ -79,13 +87,15 @@ export function SiteLayout({ crumb, children }: { crumb: string; children: React
         <span className="chip local">LOCAL · real names</span>
         <div style={{ flex: 1 }} />
         <span className="muted" style={{ fontSize: 12 }}>Simulate</span>
-        {SIMS.map(([k, l]) => <button key={k} className={`btn ${fired === k ? "on" : ""}`} onClick={() => fire(k)}>{l}</button>)}
+        {SIMS.map(([k, l, d]) => <button key={k} title={d} className={`btn ${fired === k ? "on" : ""}`} onClick={() => fire(k)}>{l}</button>)}
         <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: online ? "var(--t3)" : "var(--warn)", marginLeft: 8 }}>
           <span className="dot" style={{ background: online ? "var(--ok)" : "var(--warn)" }} />
           {online ? `Connected to VeilOps cloud (${status?.region?.toUpperCase() ?? "IN"})` : `Cloud unreachable · ${link?.outbox?.outbox_depth ?? 0} payloads held`}
         </span>
       </header>
       <main style={{ minWidth: 0 }}>{children}</main>
+      {note && <div className="toast fade" role="status"><b style={{ color: "var(--hi)", fontWeight: 500 }}>Simulation started.</b> {note}</div>}
+      {note && <div className="toast fade" role="status"><b style={{ color: "var(--hi)", fontWeight: 500 }}>Simulation started.</b> {note}</div>}
     </div>
   );
 }

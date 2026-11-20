@@ -179,7 +179,8 @@ async def run_aiops_cycle_for_tenant(conn, tenant_id: str) -> dict:
                )
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                ON CONFLICT (incident_id) DO UPDATE
-               SET severity = EXCLUDED.severity,
+               SET title = EXCLUDED.title,
+                   severity = EXCLUDED.severity,
                    status = EXCLUDED.status,
                    summary = EXCLUDED.summary,
                    root_cause_entity = EXCLUDED.root_cause_entity,
@@ -243,14 +244,28 @@ async def run_aiops_cycle_for_tenant(conn, tenant_id: str) -> dict:
                 rec["target_entity"],
                 now_ts,
             )
+        else:
+            # The root cause can change as more alerts arrive: keep the suggested fix in step with it.
+            await conn.execute(
+                """UPDATE recommendations SET title = $3, rationale = $4, confidence = $5,
+                          evidence = $6::jsonb, action_type = $7, target_entity = $8
+                   WHERE tenant_id = $1 AND recommendation_id = $2
+                     AND (action_type IS DISTINCT FROM $7 OR target_entity IS DISTINCT FROM $8
+                          OR rationale IS DISTINCT FROM $4)""",
+                tenant_id, rec_id, rec["title"], rec["rationale"], rec["confidence"],
+                json.dumps(rec["evidence"]), rec["action_type"], rec["target_entity"],
+            )
 
-        # Persist evidence links idempotently
-        existing_ev_count = await conn.fetchval(
-            "SELECT count(*) FROM evidence_links WHERE tenant_id = $1 AND incident_id = $2",
+        # Evidence follows the current explanation: rewrite it when the root cause moved.
+        existing_ev = await conn.fetch(
+            "SELECT description FROM evidence_links WHERE tenant_id = $1 AND incident_id = $2 ORDER BY evidence_number",
             tenant_id,
             incident_id,
         )
-        if existing_ev_count == 0:
+        if [r["description"] for r in existing_ev] != [ev.get("description") for ev in evidence]:
+            await conn.execute("DELETE FROM evidence_links WHERE tenant_id = $1 AND incident_id = $2", tenant_id, incident_id)
+            existing_ev = []
+        if not existing_ev:
             for ev in evidence:
                 payload_uuid = None
                 if ev.get("payload_id"):
