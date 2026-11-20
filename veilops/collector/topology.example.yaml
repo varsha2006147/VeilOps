@@ -1,0 +1,12 @@
+# Dependency graph for correlation (SAD 20.3). Real names stay here; B pseudonymizes before egress.
+# Compact form: "kind:name -> kind:name : relation"   kinds: host|service|link   relations: runs_on|connects_via|depends_on
+edges:
+  - "service:checkout -> host:app-01 : runs_on"
+  - "service:checkout -> host:app-02 : runs_on"
+  - "service:auth-api -> host:app-02 : runs_on"
+  - "service:checkout -> host:db-01 : depends_on"
+  - "service:auth-api -> host:db-01 : depends_on"
+  - "host:app-01 -> link:core-sw1 : connects_via"
+  - "host:app-02 -> link:core-sw1 : connects_via"
+  - "host:db-01 -> link:core-sw1 : connects_via"
+  - "link:core-sw1 -> link:wan-1 : connects_via"

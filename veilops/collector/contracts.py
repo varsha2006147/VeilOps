@@ -115,3 +115,8 @@ class SourceBus:
         self.windows: asyncio.Queue[WindowAgg] = asyncio.Queue(maxsize)
         self.signals: asyncio.Queue[LocalSignal] = asyncio.Queue(maxsize)
         self.status: dict[str, SourceStatus] = {}
+        # Dependency graph with REAL names (A loads it; B pseudonymizes and sends a `topology` record).
+        # B: wait on `topology_changed`, clear it, then send `self.topology` (version bumps on every change).
+        from .topology import Topology
+        self.topology: Topology = Topology()
+        self.topology_changed: asyncio.Event = asyncio.Event()

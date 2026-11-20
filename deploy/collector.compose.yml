@@ -1,0 +1,59 @@
+# Two customer environments, each with its own collector, plus the team simulator as a stand-in
+# organizer stream. Each collector sits on its own network: the only shared hop is the stream.
+#   docker compose -f deploy/collector.compose.yml up --build
+# acme UI  -> http://localhost:8100   (tenant t_acme, region in)
+# globex UI-> http://localhost:8101   (tenant t_globex, region eu)
+# At the event: set STREAM_URL to the organizer feed and SIM_ENABLED=false.
+x-collector: &collector
+  build: { context: .., dockerfile: deploy/Dockerfile.collector }
+  image: veilops-collector:dev
+  restart: unless-stopped
+  sysctls: { net.ipv4.ping_group_range: "0 2147483647" }   # unprivileged ICMP for latency/loss probes
+
+services:
+  sim:
+    image: veilops-collector:dev
+    command: ["python", "-m", "veilops.sim", "serve", "--port", "9000", "--tenants", "t_acme,t_globex"]
+    networks: [stream]
+    ports: ["9000:9000"]
+
+  collector-acme:
+    <<: *collector
+    environment:
+      COLLECTOR_ID: col_blr_01
+      TENANT_ID: t_acme
+      REGION: in
+      ENVIRONMENT: blr-dc1
+      SOURCE_TZ: Asia/Kolkata
+      STREAM_ENABLED: "true"
+      STREAM_DRIVER: sse
+      STREAM_URL: ${STREAM_URL:-http://sim:9000/stream}
+      SIM_ENABLED: "false"
+      INGEST_URL: ${INGEST_URL_IN:-https://in.ingest.veilops.local/v1}
+      DEMO_MODE: "1"
+    volumes: [acme-data:/data]
+    ports: ["8100:8100", "5514:5514/udp"]
+    networks: [stream, customer-acme]
+    depends_on: [sim]
+
+  collector-globex:
+    <<: *collector
+    environment:
+      COLLECTOR_ID: col_fra_01
+      TENANT_ID: t_globex
+      REGION: eu
+      ENVIRONMENT: fra-dc1
+      SOURCE_TZ: Europe/Berlin
+      STREAM_ENABLED: "true"
+      STREAM_DRIVER: sse
+      STREAM_URL: ${STREAM_URL:-http://sim:9000/stream}
+      SIM_ENABLED: "false"
+      INGEST_URL: ${INGEST_URL_EU:-https://eu.ingest.veilops.local/v1}
+      DEMO_MODE: "1"
+    volumes: [globex-data:/data]
+    ports: ["8101:8100", "5515:5514/udp"]
+    networks: [stream, customer-globex]
+    depends_on: [sim]
+
+volumes: { acme-data: {}, globex-data: {} }
+networks: { stream: {}, customer-acme: {}, customer-globex: {} }

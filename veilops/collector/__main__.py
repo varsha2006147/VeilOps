@@ -58,6 +58,11 @@ async def amain(cfg: CollectorConfig) -> None:
 
     tasks = [asyncio.create_task(src.supervise(pipeline.ingest), name=f"src:{n}") for n, src in sources.items()]
     tasks += [asyncio.create_task(pipeline.flusher()), asyncio.create_task(pipeline.janitor())]
+    from .topology import TopologyWatcher
+    topo = TopologyWatcher(bus, cfg.topology_file, use_sim="sim" in sources)
+    topo.refresh()
+    ctx.topology_watcher = topo
+    tasks.append(asyncio.create_task(topo.run()))
     if cfg.downstream == "privacy":
         # Member B: from veilops.collector.privacy.stage import run_privacy_stage
         from .privacy.stage import run_privacy_stage  # type: ignore[import-not-found]
