@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HEALTH, cloud, j, local, short } from "../api";
 import { usePoll, useLiveTick, useRange } from "../hooks";
@@ -44,6 +44,13 @@ export default function Explorer() {
   const sorted = [...ents].sort((a, b) => (order.indexOf(a.state ?? "Excellent") + 4) % 5 - (order.indexOf(b.state ?? "Excellent") + 4) % 5);
   const selected = sel ?? sorted[0]?.entity ?? null;
   const open: any[] = inc?.incidents ?? [];
+  const [al] = usePoll<any>(() => cloud("/api/v1/alerts?status=open&limit=200"), 5000, [tick]);
+  const issues = useMemo(() => {
+    const m: Record<string, { title: string; href: string }> = {};
+    (al?.alerts ?? []).forEach((a: any) => { m[a.entity] ??= { title: `${a.severity}: ${a.rule}`, href: `/entities/${a.entity}` }; });
+    open.forEach((i) => { if (i.root_cause_entity) m[i.root_cause_entity] = { title: `Root cause of: ${i.title}`, href: `/incidents/${i.incident_id}` }; });
+    return m;
+  }, [al, inc]); // eslint-disable-line
 
   return (
     <div className="split">
@@ -55,7 +62,7 @@ export default function Explorer() {
           <div className="seg">{(["map", "navigator", "list"] as const).map((v) => <button key={v} className={view === v ? "on" : ""} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</button>)}</div>
         </div>
         <div className="box" style={{ position: "relative", minHeight: 420 }}>
-          {view === "map" && <ServiceMap topo={topo} ents={ents} col={col} latest={latest} sel={selected} onPick={setSel} onOpen={(id) => nav(`/entities/${id}`)} />}
+          {view === "map" && <ServiceMap topo={topo} ents={ents} col={col} latest={latest} sel={selected} onPick={setSel} onOpen={(id) => nav(`/entities/${id}`)} issues={issues} />}
           {view === "navigator" && <Navigator ents={sorted} col={col} sel={selected} onPick={setSel} />}
           {view === "list" && <EntityTable ents={sorted} col={col} latest={latest} onOpen={(id) => nav(`/entities/${id}`)} />}
           <Simulate />
@@ -90,10 +97,31 @@ export default function Explorer() {
   );
 }
 
-function ServiceMap({ topo, ents, col, latest, sel, onPick, onOpen }: { topo: any; ents: Ent[]; col: (id: string) => string; latest: Record<string, number | null>; sel: string | null; onPick: (id: string) => void; onOpen: (id: string) => void }) {
+type Issue = { title: string; href: string };
+
+/** Every route a request takes: a service, through its host, out through the links. One dot per route. */
+function routes(edges: { src: string; dst: string; rel: string }[]): string[][] {
+  const out: Record<string, string[]> = {};
+  const hasIn = new Set(edges.map((e) => e.dst));
+  edges.forEach((e) => (out[e.src] ??= []).push(e.dst));
+  const roots = Object.keys(out).filter((n) => !hasIn.has(n)).sort();
+  const res: string[][] = [];
+  const walk = (path: string[]) => {
+    const next = (out[path.at(-1)!] ?? []).filter((n) => !path.includes(n)).sort();
+    if (!next.length) { res.push(path); return; }
+    next.forEach((n) => walk([...path, n]));
+  };
+  roots.forEach((r) => walk([r]));
+  return res;
+}
+
+function ServiceMap({ topo, ents, col, latest, sel, onPick, onOpen, issues }: { topo: any; ents: Ent[]; col: (id: string) => string; latest: Record<string, number | null>; sel: string | null; onPick: (id: string) => void; onOpen: (id: string) => void; issues: Record<string, Issue> }) {
+  const nav = useNavigate();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; route?: string[]; node?: string } | null>(null);
   const edges: { src: string; dst: string; rel: string }[] = topo?.edges ?? [];
   const ids = [...new Set([...edges.flatMap((e) => [e.src, e.dst]), ...ents.map((e) => e.entity)])];
-  // columns: services -> hosts -> links -> upstream links
   const colOf = (id: string) => {
     const k = kindOf(id);
     if (k === "service") return 0;
@@ -109,40 +137,95 @@ function ServiceMap({ topo, ents, col, latest, sel, onPick, onOpen }: { topo: an
     const x = 20 + (k * (W - BW - 40)) / Math.max(1, used.length - 1);
     cols[ci].forEach((id, j) => { pos[id] = [x, ((j + 1) * H) / (cols[ci].length + 1) - BH / 2]; });
   });
+  const rel = (a: string, b: string) => edges.find((e) => e.src === a && e.dst === b)?.rel.replace(/_/g, " ") ?? "";
+  const seg = (a: string, b: string) => {
+    const [x1, y1, x2, y2] = [pos[a][0] + BW, pos[a][1] + BH / 2, pos[b][0], pos[b][1] + BH / 2];
+    const mx = (x1 + x2) / 2;
+    return `C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+  };
+  const routePath = (r: string[]) => r.filter((id) => pos[id]).map((id, k, arr) => {
+    const [x, y] = pos[id];
+    return (k === 0 ? `M${x + BW / 2},${y + BH / 2} L${x + BW},${y + BH / 2}` : `${seg(arr[k - 1], id)} L${x + BW / 2},${y + BH / 2}`);
+  }).join(" ");
+  const all = routes(edges).filter((r) => r.every((id) => pos[id]));
+  const hot = tip?.route ?? (tip?.node ? [tip.node] : null);
+  const onEdge = (a: string, b: string) => !!tip?.route && tip.route.some((id, k) => id === a && tip.route![k + 1] === b);
+  const pause = (on: boolean) => { const s = svgRef.current; if (s) (on ? s.pauseAnimations() : s.unpauseAnimations()); };
+  const show = (e: React.MouseEvent, t: { route?: string[]; node?: string }) => {
+    const r = boxRef.current!.getBoundingClientRect();
+    pause(true); setTip({ x: e.clientX - r.left, y: e.clientY - r.top, ...t });
+  };
+  const hide = () => { pause(false); setTip(null); };
   if (!ids.length) return <div className="muted" style={{ padding: 24 }}>Waiting for the first collector to send its network map…</div>;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Service map with live traffic">
-      <defs><radialGradient id="glow"><stop offset="0" stopColor="#EB5757" stopOpacity=".35" /><stop offset="1" stopColor="#EB5757" stopOpacity="0" /></radialGradient></defs>
-      {edges.map((e, k) => {
-        const a = pos[e.src], b = pos[e.dst];
-        if (!a || !b) return null;
-        const [x1, y1, x2, y2] = a[0] < b[0] ? [a[0] + BW, a[1] + BH / 2, b[0], b[1] + BH / 2] : [b[0] + BW, b[1] + BH / 2, a[0], a[1] + BH / 2];
-        const mx = (x1 + x2) / 2, d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
-        const bad = [e.src, e.dst].some((id) => col(id) === "var(--crit)");
-        const dur = `${2.2 + (k % 3) * 0.5}s`;
-        return (
-          <g key={k}>
-            <path d={d} fill="none" stroke={bad ? "#5A3034" : "#2A2E35"} strokeWidth="1.4" strokeDasharray={bad ? "4 4" : undefined} />
-            {[0, 0.5].map((off) => <circle key={off} r="2.6" fill={bad ? "#EB5757" : "#9AA0A8"} opacity={bad ? 0.4 : 0.9}>
-              <animateMotion dur={dur} begin={`${off * (2.2 + (k % 3) * 0.5)}s`} repeatCount="indefinite" path={d} /></circle>)}
-          </g>
-        );
-      })}
-      {ids.map((id) => {
-        const p = pos[id];
-        if (!p) return null;
-        const c = col(id), crit = c === "var(--crit)", k = kindOf(id);
-        return (
-          <g key={id} style={{ cursor: "pointer" }} onClick={() => onPick(id)} onDoubleClick={() => onOpen(id)}>
-            {crit && <circle cx={p[0] + BW / 2} cy={p[1] + BH / 2} r="44" fill="url(#glow)" />}
-            <rect x={p[0]} y={p[1]} width={BW} height={BH} rx="8" fill="#14171B" stroke={id === sel ? "#9AA0A8" : crit ? "#5A3034" : "#2A2E35"} strokeWidth={id === sel ? 1.5 : 1} />
-            <circle cx={p[0] + 14} cy={p[1] + BH / 2} r="4" fill={c} />
-            <text x={p[0] + 26} y={p[1] + 20} fill="#F4F5F7" fontSize="12" fontFamily="JetBrains Mono, monospace">{short(id, 12)}</text>
-            <text x={p[0] + 26} y={p[1] + 35} fill="#6E747C" fontSize="11">{k} · {fmt(KEY_METRIC[k], latest[id])}</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={boxRef} style={{ position: "relative" }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Service map. Each moving dot is one request route from a service, through its host, out through the network links.">
+        <defs><radialGradient id="glow"><stop offset="0" stopColor="#EB5757" stopOpacity=".35" /><stop offset="1" stopColor="#EB5757" stopOpacity="0" /></radialGradient></defs>
+        {edges.map((e, k) => {
+          if (!pos[e.src] || !pos[e.dst]) return null;
+          const [x1, y1] = [pos[e.src][0] + BW, pos[e.src][1] + BH / 2];
+          const d = `M${x1},${y1} ${seg(e.src, e.dst)}`;
+          const bad = !!(issues[e.src] || issues[e.dst]);
+          const lit = onEdge(e.src, e.dst);
+          return <path key={k} d={d} fill="none" stroke={lit ? "#E6E8EB" : bad ? "#5A3034" : "#2A2E35"} strokeWidth={lit ? 2 : 1.4} strokeDasharray={bad && !lit ? "4 4" : undefined} opacity={tip && !lit ? 0.35 : 1} />;
+        })}
+        {ids.map((id) => {
+          const p = pos[id];
+          if (!p) return null;
+          const c = col(id), crit = !!issues[id], k = kindOf(id), lit = hot?.includes(id);
+          return (
+            <g key={id} style={{ cursor: "pointer" }} opacity={tip && !lit ? 0.45 : 1} onClick={() => onPick(id)} onDoubleClick={() => onOpen(id)}
+              onMouseEnter={(e) => show(e, { node: id })} onMouseLeave={hide}>
+              {crit && <circle cx={p[0] + BW / 2} cy={p[1] + BH / 2} r="44" fill="url(#glow)" />}
+              <rect x={p[0]} y={p[1]} width={BW} height={BH} rx="8" fill="#14171B" stroke={lit || id === sel ? "#9AA0A8" : crit ? "#5A3034" : "#2A2E35"} strokeWidth={lit || id === sel ? 1.5 : 1} />
+              <circle cx={p[0] + 14} cy={p[1] + BH / 2} r="4" fill={crit ? "var(--crit)" : c} />
+              <text x={p[0] + 26} y={p[1] + 20} fill="#F4F5F7" fontSize="12" fontFamily="JetBrains Mono, monospace">{short(id, 12)}</text>
+              <text x={p[0] + 26} y={p[1] + 35} fill="#6E747C" fontSize="11">{k} · {fmt(KEY_METRIC[k], latest[id])}</text>
+            </g>
+          );
+        })}
+        {all.map((r, k) => {
+          const d = routePath(r);
+          const bad = r.some((id) => issues[id]);
+          const dur = 3 + r.length * 1.1;
+          const lit = tip?.route === r;
+          return (
+            <g key={k} style={{ cursor: "pointer" }} onMouseEnter={(e) => show(e, { route: r })} onMouseLeave={hide}
+              onClick={() => { const i = r.map((id) => issues[id]).find(Boolean); i ? nav(i.href) : onOpen(r[0]); }}>
+              <circle r="10" fill="transparent" />
+              <circle r={lit ? 5 : 3.2} fill={bad ? "#EB5757" : "#C9CDD2"} stroke={lit ? "#F4F5F7" : "none"} strokeWidth="1.5" />
+              <animateMotion dur={`${dur}s`} begin={`${-(k * 1.7) % dur}s`} repeatCount="indefinite" path={d} />
+            </g>
+          );
+        })}
+      </svg>
+      {tip && (
+        <div style={{ position: "absolute", left: Math.min(tip.x + 14, (boxRef.current?.clientWidth ?? 800) - 300), top: tip.y + 14, width: 286, pointerEvents: "none", background: "#0B0D10", border: "1px solid var(--line2)", borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.5, boxShadow: "0 8px 24px rgba(0,0,0,.45)", zIndex: 5 }}>
+          {tip.route ? <>
+            <div className="t3" style={{ marginBottom: 6 }}>Request route · {tip.route.length} hops</div>
+            {tip.route.map((id, k) => (
+              <div key={id}>
+                {k > 0 && <div className="muted" style={{ fontSize: 11, paddingLeft: 14 }}>↓ {rel(tip.route![k - 1], id)}</div>}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span className="dot" style={{ background: issues[id] ? "var(--crit)" : col(id) }} />
+                  <span className="mono" style={{ color: "var(--hi)" }}>{id}</span>
+                  <span className="muted" style={{ marginLeft: "auto" }}>{fmt(KEY_METRIC[kindOf(id)], latest[id])}</span>
+                </div>
+                {issues[id] && <div className="crit" style={{ paddingLeft: 14, fontSize: 11.5 }}>{issues[id].title}</div>}
+              </div>
+            ))}
+            <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>{tip.route.some((id) => issues[id]) ? "Click to open the incident" : "Click to open the first entity"}</div>
+          </> : tip.node && <>
+            <div className="mono" style={{ color: "var(--hi)" }}>{tip.node}</div>
+            <div className="t3">{kindOf(tip.node)} · {ents.find((e) => e.entity === tip.node)?.state ?? "no health yet"} · {fmt(KEY_METRIC[kindOf(tip.node)], latest[tip.node])}</div>
+            {issues[tip.node] ? <div className="crit" style={{ marginTop: 4 }}>{issues[tip.node].title}</div> : <div className="muted" style={{ marginTop: 4 }}>No open issue</div>}
+            <div className="muted" style={{ marginTop: 6, fontSize: 11 }}>{edges.filter((e) => e.src === tip.node).map((e) => `${e.rel.replace(/_/g, " ")} ${e.dst}`).join(" · ") || "no outgoing connections"}</div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>Double-click for details</div>
+          </>}
+        </div>
+      )}
+      <div className="muted" style={{ position: "absolute", left: 12, bottom: 8, fontSize: 11.5 }}>Each dot is one request route: service → host → network. Hover a dot to follow it; red means a hop on its route has an open issue.</div>
+    </div>
   );
 }
 
