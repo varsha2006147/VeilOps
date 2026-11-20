@@ -60,7 +60,7 @@ class CollectorConfig:
     ui_host: str = "0.0.0.0"
     ui_port: int = 8100
     demo_mode: bool = False
-    downstream: str = "none"           # "none" until B's privacy stage is wired in
+    downstream: str = "privacy"        # "none" = drop after local detection (tests/offline)
     thresholds: Thresholds = field(default_factory=Thresholds)
     auth: AuthRules = field(default_factory=AuthRules)
     topology_file: str | None = None
