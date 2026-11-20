@@ -2,9 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
+import secrets
 import time
+from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -31,6 +37,27 @@ def compute_backoff_s(
     return min(max_s, base_s * (factor ** max(0, attempt)))
 
 
+@dataclass(frozen=True)
+class CollectorCredentials:
+    """Per-collector HMAC key issued by the cloud at enrollment (POST /v1/enroll)."""
+    collector_id: str
+    secret: bytes
+
+    def __repr__(self) -> str:
+        return f"CollectorCredentials(collector_id={self.collector_id!r}, secret=<hidden>)"
+
+
+def hmac_headers(creds: CollectorCredentials, method: str, url: str, body: bytes) -> dict[str, str]:
+    """Cloud §13 request auth: HMAC-SHA256 over METHOD, PATH(+query), TIMESTAMP, NONCE, sha256(body)."""
+    parts = urlsplit(url)
+    path = parts.path + (("?" + parts.query) if parts.query else "")
+    ts, nonce = str(int(time.time())), secrets.token_hex(16)
+    msg = "\n".join((method.upper(), path, ts, nonce, hashlib.sha256(body).hexdigest())).encode()
+    sig = base64.b64encode(hmac.new(creds.secret, msg, hashlib.sha256).digest()).decode("ascii")
+    return {"X-VeilOps-Collector": creds.collector_id, "X-VeilOps-Timestamp": ts,
+            "X-VeilOps-Nonce": nonce, "X-VeilOps-Signature": sig}
+
+
 class TransportSender:
     """Delivers outbox envelopes and periodic heartbeats via HTTP/S."""
 
@@ -46,8 +73,12 @@ class TransportSender:
         timeout: float = 10.0,
         egress_guard: EgressGuard | None = None,
         verify_key_bytes: bytes | None = None,
+        credentials: CollectorCredentials | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.credentials = credentials
+        self.last_status: int | None = None
+        self.last_error: str | None = None
         self.outbox = outbox
         self.signer = signer
         self.ingest_url = ingest_url or f"{self.base_url}/v1/ingest"
@@ -101,18 +132,28 @@ class TransportSender:
                 "Idempotency-Key": entry.payload_id,
             }
 
+            body = entry.envelope_json.encode("utf-8")
+            if self.credentials is not None:
+                # Cloud authenticates with HMAC; the Ed25519 envelope signature stays as evidence.
+                headers.pop("X-VeilOps-Signature", None)
+                headers["X-VeilOps-Envelope-Signature"] = entry.signature
+                headers.update(hmac_headers(self.credentials, "POST", self.ingest_url, body))
             try:
                 resp = await self._client.post(
                     self.ingest_url,
-                    content=entry.envelope_json,
+                    content=body,
                     headers=headers,
                 )
-            except httpx.HTTPError:
+            except httpx.HTTPError as exc:
                 # Stop immediately, preserving head-of-line queue order
+                self.last_status, self.last_error = None, type(exc).__name__
                 break
+            self.last_status = resp.status_code
+            self.last_error = None if resp.status_code < 300 else resp.text[:200]
 
             if resp.status_code in (200, 201, 202):
                 receipt = None
+                data = None
                 try:
                     data = resp.json()
                     if isinstance(data, dict):
@@ -120,14 +161,15 @@ class TransportSender:
                 except Exception:
                     receipt = None
 
-                # Verify receipt cryptographic signature if key is configured
-                if self.verify_key_bytes and receipt and receipt.sig:
-                    receipt_dict = receipt.model_dump(mode="json")
-                    receipt_no_sig = {k: v for k, v in receipt_dict.items() if k != "sig"}
+                # Verify the SaaS signature over the receipt exactly as received
+                # (re-serialising a parsed model could change bytes and break verification).
+                if self.verify_key_bytes and isinstance(data, dict) and data.get("sig"):
+                    receipt_no_sig = {k: v for k, v in data.items() if k != "sig"}
                     canonical = canonical_bytes(receipt_no_sig)
                     if not EnvelopeSigner.verify_signature(
-                        self.verify_key_bytes, canonical, receipt.sig
+                        self.verify_key_bytes, canonical, data["sig"]
                     ):
+                        self.last_error = "receipt signature invalid"
                         # Invalid SaaS receipt signature: fail-closed, do not ack
                         break
 
@@ -180,10 +222,14 @@ class TransportSender:
             "X-VeilOps-Key-Id": self.signer.public_key_hex[:16],
         }
 
+        body = heartbeat.model_dump_json().encode("utf-8")
+        if self.credentials is not None:
+            headers.pop("X-VeilOps-Signature", None)
+            headers.update(hmac_headers(self.credentials, "POST", self.heartbeat_url, body))
         try:
             resp = await self._client.post(
                 self.heartbeat_url,
-                content=heartbeat.model_dump_json(),
+                content=body,
                 headers=headers,
             )
             return resp.is_success
@@ -191,6 +237,20 @@ class TransportSender:
             return False
         except Exception:
             return False
+
+
+async def reconcile(sender: "TransportSender", from_seq: int, to_seq: int) -> dict | None:
+    """Ask the cloud which sequence numbers in [from_seq, to_seq] it has stored (§17)."""
+    if sender.credentials is None:
+        return None
+    url = (f"{sender.base_url}/v1/reconcile?collector_id={sender.credentials.collector_id}"
+           f"&from_seq={from_seq}&to_seq={to_seq}")
+    headers = hmac_headers(sender.credentials, "GET", url, b"")
+    try:
+        resp = await sender._client.get(url, headers=headers)
+    except httpx.HTTPError:
+        return None
+    return resp.json() if resp.status_code == 200 else None
 
 
 class BusBridge:
