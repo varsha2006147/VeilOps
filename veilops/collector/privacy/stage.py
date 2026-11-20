@@ -54,6 +54,20 @@ def _write_private(path: Path, data: dict) -> None:
         json.dump(data, fh)
 
 
+def _explain(exc: Exception) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        try:
+            code = exc.response.json().get("detail", {})
+            code = code.get("code") if isinstance(code, dict) else code
+        except Exception:
+            code = exc.response.text[:120]
+        hint = {"BAD_OR_EXPIRED_ENROLLMENT_TOKEN": "token expired or already used - make a new one"}.get(str(code), "")
+        return f"HTTP {exc.response.status_code} {code} {hint}".strip()
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return "cloud not reachable - check the IP, same Wi-Fi, firewall on the cloud laptop"
+    return f"{type(exc).__name__}: {exc}"
+
+
 async def ensure_credentials(cfg, data_dir: Path, client: httpx.AsyncClient) -> dict | None:
     """Cloud credentials: saved file > one-time enrollment token > env secret > none (offline)."""
     path = data_dir / CREDENTIALS_FILE
@@ -254,8 +268,9 @@ class CloudLink:
     async def snapshot(self) -> dict:
         stats = await self.ledger.stats() if self.ledger else {}
         return {**self.status, "outbox": stats, "collector_id": self.cfg.collector_id,
-                "tenant_id": self.cfg.tenant_id, "dropped_invalid": self.bridge.dropped_invalid,
-                "egress_blocked": self.guard.blocked_counter}
+                "tenant_id": self.cfg.tenant_id,
+                "dropped_invalid": self.bridge.dropped_invalid if self.bridge else 0,
+                "egress_blocked": self.guard.blocked_counter if getattr(self, "guard", None) else 0}
 
 
 def _policy_int(version: str) -> int:
@@ -282,15 +297,22 @@ def _sandbox_url(cfg) -> str | None:
 async def run_privacy_stage(cfg, bus, store, ctx, app) -> None:
     data_dir = Path(cfg.db_path).parent
     link = CloudLink(cfg, bus, ctx, data_dir)
-    try:
-        await link.setup()
-    except Exception:
-        log.exception("downstream setup failed; nothing will leave this collector")
-        raise
 
     @app.get("/local/cloud")
     async def cloud_status() -> dict:
         return await link.snapshot()
+
+    # Enrollment can fail at the venue (cloud unreachable, token expired, clocks off). Show why and retry.
+    while True:
+        try:
+            await link.setup()
+            link.status["last_error"] = None
+            break
+        except Exception as exc:
+            link.status["online"] = False
+            link.status["last_error"] = f"cannot enroll with {cloud_base_url(cfg.ingest_url)}: {_explain(exc)}"
+            log.warning("downstream setup failed (%s); retrying in 10 s", link.status["last_error"])
+            await asyncio.sleep(10)
 
     tasks = [asyncio.create_task(link.bridge.run(), name="privacy:bridge"),
              asyncio.create_task(link.topology_loop(), name="privacy:topology")]
