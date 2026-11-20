@@ -1,0 +1,9 @@
+{
+  "request": "POST /api/v1/actions",
+  "note": "body: {collector_id, action_type, policy_ref}. Then a DIFFERENT user with role approver calls POST /api/v1/actions/{id}/approve (two-person rule).",
+  "response": {
+    "action_id": "78d3b329-7f51-4358-8bed-f330354aa369",
+    "status": "pending",
+    "expires_at": "2026-11-20T18:58:16.367236+00:00"
+  }
+}

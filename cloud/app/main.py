@@ -4,7 +4,10 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
 import asyncpg
+import os
+
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
 from cloud.app.actions import router as actions_router
@@ -99,6 +102,14 @@ app.include_router(judge_router)
 app.include_router(events_router)
 app.include_router(actions_router)
 app.add_middleware(TenantJWTMiddleware)
+# Added last = outermost, so browser preflight requests are answered before JWT checks.
+# Dashboard dev server origin(s); comma-separated. Never "*": the dashboard sends credentials.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()],
+    allow_methods=["GET", "POST", "PUT"], allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["Content-Disposition"],
+)
 
 
 @app.get("/health/live", tags=["health"])

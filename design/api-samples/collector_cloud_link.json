@@ -1,0 +1,50 @@
+{
+  "request": "GET http://localhost:8100/local/cloud",
+  "note": "collector-local: online/outage/backlog/reconcile + executed actions (with steps). Live screen right side.",
+  "response": {
+    "enrolled": true,
+    "online": true,
+    "last_ack_at": "2026-11-20T18:43:12.306Z",
+    "last_error": null,
+    "outage_started_at": null,
+    "last_reconcile": null,
+    "actions": [
+      {
+        "action_id": "7a1c1c13-3828-494a-a15f-7b46b62fdf61",
+        "type": "RESTART_SERVICE",
+        "decision": "allow",
+        "reason": "allow",
+        "status": "executed",
+        "steps": [
+          {
+            "step": "snapshot",
+            "health": "poor",
+            "cpu_pct": 106.5,
+            "ts": "2026-11-20T18:42:47.005Z"
+          },
+          {
+            "step": "dry_run",
+            "plan": "restart sandbox-app: stop runaway worker=True",
+            "ts": "2026-11-20T18:42:47.523Z"
+          },
+          {
+            "step": "execute",
+            "action_id": "5b0b272c-5f57-427c-9e3d-1c512b96c2a2",
+            "ts": "2026-11-20T18:42:47.983Z"
+          }
+        ]
+      }
+    ],
+    "outbox": {
+      "outbox_depth": 0,
+      "oldest_unsent_s": 0.0,
+      "last_acked_seq": 25,
+      "highest_seq": 25,
+      "total_sent_records": 738
+    },
+    "collector_id": "col_790382970ed340e6",
+    "tenant_id": "t_acme",
+    "dropped_invalid": 0,
+    "egress_blocked": 0
+  }
+}

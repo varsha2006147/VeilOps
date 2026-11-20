@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VeilOps · Incidents</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:inherit}button{font:inherit}
+.tb:hover{color:#E2E4E7}
+.btn{padding:6px 12px;border-radius:6px;border:1px solid #2A2B30;background:transparent;color:#E2E4E7;cursor:pointer;font-size:12.5px}
+.btn:hover{background:#17181B}
+.pri{background:#E2E4E7;color:#0B0C0E;border-color:#E2E4E7}
+.pri:hover{background:#FFFFFF}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C0E; color: #E2E4E7; font-family: Inter, system-ui, sans-serif; font-size: 13px; letter-spacing: -0.006em; display: flex; flex-direction: column">
+
+<header style="display: flex; align-items: center; gap: 22px; height: 52px; padding: 0 28px; border-bottom: 1px solid #1B1C20">
+<span style="display: flex; align-items: center; gap: 8px; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2E4E7" stroke-width="1.7" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9.5C7.2 20 4 16.5 4 12V6z"/></svg>VeilOps</span>
+<span style="color: #6B6F76">acme</span>
+<nav aria-label="Views" style="display: flex; gap: 20px; color: #8A8F98">
+<a href="Live.dc.html" class="tb" style="text-decoration: none">Live</a>
+<a href="Recorder.dc.html" style="color: #F2F3F5; text-decoration: none; box-shadow: inset 0 -2px 0 #E2E4E7; padding: 16px 0">Incidents</a>
+<a href="Summary.dc.html" class="tb" style="text-decoration: none">Summary</a>
+<a href="Overview.dc.html" class="tb" style="text-decoration: none">How it works</a>
+</nav>
+<div style="flex: 1"></div>
+<span style="color: #6B6F76; font-family: 'JetBrains Mono', monospace; font-size: 12px">03:45 → 04:12 UTC</span>
+</header>
+
+<div style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 400px">
+
+<section aria-label="Flight recorder" style="padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; border-right: 1px solid #1B1C20">
+<div style="display: flex; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px; flex: 1">
+<span style="color: #6B6F76; font-size: 11.5px; letter-spacing: .12em">FLIGHT RECORDER · LAST 27 MIN</span>
+<span style="font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: #F2F3F5">{{ head }}</span>
+</div>
+<button type="button" class="btn" onClick="{{ replay }}">{{ replayLabel }}</button>
+</div>
+
+<div style="position: relative">
+<svg width="100%" viewBox="0 0 900 470" role="img" aria-label="Six metric lanes over time with incident INC-014 grouping three spiking lanes" style="display: block; font-family: Inter, sans-serif">
+<sc-for list="{{ ticks }}" as="t" hint-placeholder-count="6">
+<line x1="{{ t.x }}" x2="{{ t.x }}" y1="20" y2="440" stroke="#16171A"/>
+<text x="{{ t.x }}" y="462" fill="#6B6F76" font-size="11" text-anchor="middle">{{ t.label }}</text>
+</sc-for>
+<rect x="{{ bx }}" y="{{ by }}" width="{{ bw }}" height="{{ bh }}" rx="6" fill="rgba(235,87,87,.05)" stroke="#EB5757" stroke-dasharray="4 3" opacity="{{ bOp }}"/>
+<text x="{{ bx }}" y="{{ bly }}" fill="#EB5757" font-size="11" font-family="JetBrains Mono, monospace" opacity="{{ bOp }}">INC-014 · 6 alerts → 1</text>
+<sc-for list="{{ lanes }}" as="l" hint-placeholder-count="6">
+<text x="0" y="{{ l.ty }}" fill="#9C9FA5" font-size="12">{{ l.name }}</text>
+<text x="0" y="{{ l.ty2 }}" fill="#6B6F76" font-size="10.5" font-family="JetBrains Mono, monospace">{{ l.id }}</text>
+<line x1="150" x2="900" y1="{{ l.base }}" y2="{{ l.base }}" stroke="#1B1C20"/>
+<polyline points="{{ l.pts }}" fill="none" stroke="{{ l.col }}" stroke-width="1.4"/>
+</sc-for>
+<sc-for list="{{ dots }}" as="d" hint-placeholder-count="6">
+<circle cx="{{ d.x }}" cy="{{ d.y }}" r="4" fill="#0B0C0E" stroke="#EB5757" stroke-width="1.5" opacity="{{ d.op }}"/>
+</sc-for>
+<rect x="{{ maskX }}" y="16" width="{{ maskW }}" height="430" fill="#0B0C0E" opacity=".78"/>
+<line x1="{{ px }}" x2="{{ px }}" y1="14" y2="446" stroke="#E2E4E7" stroke-width="1"/>
+<text x="{{ px }}" y="10" fill="#E2E4E7" font-size="11" text-anchor="middle" font-family="JetBrains Mono, monospace">{{ pLabel }}</text>
+</svg>
+</div>
+
+<div style="display: flex; gap: 22px; color: #6B6F76; font-size: 12px; margin-top: auto">
+<span>Lines are minute summaries sent by collectors. No raw log ever reaches this screen.</span>
+<span style="flex: 1"></span>
+<span>Open: INC-014 · packet loss on core link · Frankfurt heartbeat late</span>
+</div>
+</section>
+
+<aside aria-label="Incident explanation" style="padding: 28px 28px; display: flex; flex-direction: column; gap: 22px; background: #0D0E10">
+<sc-if value="{{ shown }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6B6F76"><span style="color: #EB5757">INC-014</span>opened 04:03:12 · 2 s after breach</span>
+<span style="font-size: 19px; font-weight: 500; letter-spacing: -0.015em; color: #F2F3F5; line-height: 1.35">A checkout process is burning CPU while traffic is flat.</span>
+</div>
+<p style="margin: 0; color: #B9BCC2; line-height: 1.7">CPU on <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">h_7f3a21c90b</span> climbed from 34% to 96% in ninety seconds<sup style="color: #6B6F76">1</sup>. Requests per second did not move<sup style="color: #6B6F76">2</sup>, so this is not load. Checkout latency rose right after<sup style="color: #6B6F76">3</sup>. Six alerts on three lanes share one host and one five-minute window, so they are one incident.</p>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #6B6F76; border-top: 1px solid #1B1C20; padding-top: 14px">
+<span><sup>1</sup> cpu.util p95 · window 04:01–04:02 · payload #1031</span>
+<span><sup>2</sup> http.rps mean, change 0.4% · payload #1032</span>
+<span><sup>3</sup> http.latency p95 820 ms · payload #1034</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid #23252A; border-radius: 8px">
+<span style="color: #9C9FA5; font-size: 12px">Suggested fix · confidence 0.84</span>
+<span style="color: #F2F3F5">Restart checkout-svc on the affected host</span>
+<span style="color: #6B6F76; font-size: 12px; line-height: 1.6">Snapshot first. If CPU is not under 60% within 30 s, roll back automatically.</span>
+<div style="display: flex; gap: 8px; margin-top: 4px"><button type="button" class="btn pri">Approve</button><button type="button" class="btn">Dry run</button></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ notShown }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; color: #6B6F76; line-height: 1.7">
+<span style="color: #9C9FA5; font-size: 15px">Watching…</span>
+<span>{{ waitText }}</span>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { p: 100, playing: false }; }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const p = this.state.p, X0 = 150, W = 750, x = (f) => X0 + f * W;
+    const lanes = [
+      ['CPU · checkout', 'h_7f3a21c90b', 34, 96, 0.67, 6],
+      ['Latency · checkout', 'svc_checkout', 30, 82, 0.70, 5],
+      ['Errors · checkout', 'svc_checkout', 8, 46, 0.72, 3],
+      ['Requests / s', 'svc_checkout', 50, 51, 2, 4],
+      ['RTT · Singapore', 'col_sin_01', 40, 42, 2, 7],
+      ['Heartbeat · Frankfurt', 'col_fra_01', 20, 26, 2, 2]
+    ];
+    const dots = [];
+    const L = lanes.map((l, k) => {
+      const base = 40 + k * 70 + 50, pts = [];
+      for (let i = 0; i <= 60; i++) {
+        const f = i / 60; let v = l[2] + Math.sin(i * 0.9 + k * 2) * l[5] * 0.5 + Math.sin(i * 2.3 + k) * 1.5;
+        if (f > l[4]) v = l[3] + Math.sin(i * 1.7) * 2;
+        else if (f > l[4] - 0.04) v = l[2] + (l[3] - l[2]) * ((f - (l[4] - 0.04)) / 0.04);
+        pts.push(x(f).toFixed(1) + ',' + (base - v * 0.5).toFixed(1));
+      }
+      if (l[4] < 1) { [0, 0.05].forEach((o) => { const f = l[4] + o; dots.push({ x: x(f), y: base - l[3] * 0.5, f }); }); }
+      return { name: l[0], id: l[1], ty: base - 30, ty2: base - 15, base, pts: pts.join(' '), col: l[4] < 1 ? '#E2E4E7' : '#6B6F76' };
+    });
+    const pf = p / 100, px = x(pf);
+    const mins = Math.round(pf * 27), hh = 3 + Math.floor((45 + mins) / 60), mm = (45 + mins) % 60;
+    const shown = pf >= 0.80;
+    const nAlerts = dots.filter((d) => d.f <= pf).length;
+    return {
+      lanes: L,
+      dots: dots.map((d) => ({ x: d.x, y: d.y, op: d.f <= pf ? 1 : 0 })),
+      ticks: [0, 5, 10, 15, 20, 25].map((m) => ({ x: x(m / 27), label: '0' + (3 + Math.floor((45 + m) / 60)) + ':' + String((45 + m) % 60).padStart(2, '0') })),
+      bx: x(0.62), by: 30, bw: x(0.82) - x(0.62), bh: 210, bly: 24, bOp: shown ? 1 : 0,
+      px, maskX: px, maskW: Math.max(0, 900 - px), pLabel: '0' + hh + ':' + String(mm).padStart(2, '0'),
+      shown, notShown: !shown,
+      waitText: nAlerts === 0 ? 'Everything is inside its normal range. No alerts yet.' : nAlerts + ' alert' + (nAlerts > 1 ? 's' : '') + ' so far. Waiting to see if they belong together.',
+      head: shown ? '6 alerts became 1 incident' : nAlerts ? nAlerts + ' alerts, not yet grouped' : 'All quiet',
+      replayLabel: this.state.playing ? 'Replaying…' : '↻ Replay',
+      replay: () => {
+        if (this.state.playing) return;
+        clearInterval(this.t); this.setState({ p: 0, playing: true });
+        this.t = setInterval(() => { const n = this.state.p + 1.25; if (n >= 100) { clearInterval(this.t); this.setState({ p: 100, playing: false }); } else this.setState({ p: n }); }, 80);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "request": "GET /api/v1/entities/h_311fac50c2/health-history",
+  "note": "",
+  "response": {
+    "entity": "h_311fac50c2",
+    "transitions": [
+      {
+        "from_state": "Excellent",
+        "to_state": "Poor",
+        "reasons": "[\"heartbeat_recent\", \"cpu.util_pct:poor\"]",
+        "at_utc": "2026-11-20T18:42:34.253711+00:00"
+      },
+      {
+        "from_state": null,
+        "to_state": "Excellent",
+        "reasons": "[\"heartbeat_recent\"]",
+        "at_utc": "2026-11-20T18:41:24.098750+00:00"
+      }
+    ]
+  }
+}

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VeilOps · How it works</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:inherit}a:hover{color:inherit}
+button{font:inherit}
+.tab:hover{color:#E2E4E7}
+</style>
+</helmet>
+<div style="min-height: 980px; background: #0B0C0E; color: #E2E4E7; font-family: Inter, system-ui, sans-serif; font-size: 13px; letter-spacing: -0.006em">
+
+<header style="display: flex; align-items: center; gap: 22px; padding: 0 40px; height: 56px; border-bottom: 1px solid #1B1C20; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E2E4E7" stroke-width="1.6" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9.5C7.2 20 4 16.5 4 12V6z"/></svg>VeilOps</span>
+<a href="Live.dc.html" class="tab" style="color: #8A8F98; text-decoration: none">← Back to dashboard</a>
+<div style="flex: 1"></div>
+<div role="group" aria-label="Simulate" style="display: flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid #23252A; border-radius: 8px">
+<button type="button" onClick="{{ setCalm }}" style="{{ bCalm }}">Calm</button>
+<button type="button" onClick="{{ setSecret }}" style="{{ bSecret }}">Secret in log</button>
+<button type="button" onClick="{{ setCpu }}" style="{{ bCpu }}">CPU runaway</button>
+</div>
+<span style="color: #8A8F98">Live from Acme Corp</span>
+</header>
+
+<div style="padding: 56px 40px 0; display: flex; flex-direction: column; gap: 14px; max-width: 760px">
+<span style="color: #8A8F98">How VeilOps works</span>
+<h1 style="margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.2; color: #F2F3F5">The cloud sees the shape of your operations, never the secrets.</h1>
+<p style="margin: 0; color: #9C9FA5; font-size: 15px; line-height: 1.65">A collector runs inside your network. It keeps raw logs on your machines, removes secrets, replaces names with codes and sends only a few numbers. These four instruments are drawn live from that data: every plate, block and tower is something real.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #1B1C20; margin: 36px 40px 40px; border-radius: 12px; overflow: hidden; border: 1px solid #1B1C20">
+
+<section aria-label="Egress ledger" style="background: #0E0F11; padding: 28px 30px; display: flex; flex-direction: column; gap: 6px; min-height: 380px; position: relative">
+<span style="color: #8A8F98">Egress ledger</span>
+<span style="font-size: 34px; font-weight: 500; letter-spacing: -0.03em; color: #F2F3F5">{{ ledgerBig }}</span>
+<span style="color: #8A8F98; max-width: 240px; line-height: 1.5">{{ ledgerSub }}</span>
+<canvas ref="{{ r1 }}" role="img" aria-label="Isometric stack of plates; each plate is one payload sent to the cloud, height is its record count, a red plate was blocked" style="position: absolute; right: 18px; bottom: 14px; width: 400px; height: 330px"></canvas>
+</section>
+
+<section aria-label="Data reduction" style="background: #0E0F11; padding: 28px 30px; display: flex; flex-direction: column; gap: 6px; min-height: 380px; position: relative">
+<span style="color: #8A8F98">Raw data kept local</span>
+<span style="font-size: 34px; font-weight: 500; letter-spacing: -0.03em; color: #F2F3F5">99.91%</span>
+<span style="color: #8A8F98; max-width: 240px; line-height: 1.5">{{ reduceSub }}</span>
+<canvas ref="{{ r2 }}" role="img" aria-label="A thick block of raw data becomes thinner through three privacy gates until only a thin metadata sheet is sent" style="position: absolute; right: 18px; bottom: 14px; width: 400px; height: 330px"></canvas>
+</section>
+
+<section aria-label="Fleet health" style="background: #0E0F11; padding: 28px 30px; display: flex; flex-direction: column; gap: 6px; min-height: 380px; position: relative">
+<span style="color: #8A8F98">Fleet</span>
+<span style="font-size: 34px; font-weight: 500; letter-spacing: -0.03em; color: #F2F3F5">{{ fleetBig }}</span>
+<span style="color: #8A8F98; max-width: 240px; line-height: 1.5">{{ fleetSub }}</span>
+<canvas ref="{{ r3 }}" role="img" aria-label="Isometric grid of towers, one per monitored machine; tower height is CPU and the top edge shows health" style="position: absolute; right: 18px; bottom: 14px; width: 400px; height: 330px"></canvas>
+</section>
+
+<section aria-label="Latency budget" style="background: #0E0F11; padding: 28px 30px; display: flex; flex-direction: column; gap: 6px; min-height: 380px; position: relative">
+<span style="color: #8A8F98">Collection → dashboard</span>
+<span style="font-size: 34px; font-weight: 500; letter-spacing: -0.03em; color: #F2F3F5">4.8 s <span style="font-size: 15px; color: #8A8F98; letter-spacing: 0">p95 · budget 10 s</span></span>
+<span style="color: #8A8F98; max-width: 240px; line-height: 1.5">Collect 2.5 s · batch 1.2 s · network 0.3 s · ingest 0.5 s · render 0.3 s</span>
+<canvas ref="{{ r4 }}" role="img" aria-label="Stacked blocks for each step of the latency budget inside a dashed 10 second outline" style="position: absolute; right: 18px; bottom: 14px; width: 400px; height: 330px"></canvas>
+</section>
+</div>
+<p style="margin: -24px 40px 0; color: #4B4E55; font-size: 11.5px">Every shape is drawn from data: plates are payloads, towers are machines, blocks are milliseconds. Sample data in this mockup.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'calm' };
+    this.mode = 'calm';
+    this.cv = [null, null, null, null];
+    this.refs4 = [0, 1, 2, 3].map((i) => (el) => { this.cv[i] = el; });
+    this.plates = [6, 9, 7, 12, 8, 14, 10, 7, 11, 13, 9, 15, 12, 14];
+    this.cpu = []; for (let i = 0; i < 30; i++) this.cpu.push(18 + ((i * 37) % 23));
+  }
+  componentDidMount() {
+    this.reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.t0 = performance.now(); this.last = 0;
+    const loop = (t) => { if (t - this.last > 33) { this.last = t; this.drawAll(t); } this.raf = requestAnimationFrame(loop); };
+    this.raf = requestAnimationFrame(loop);
+    this.tick = setInterval(() => { if (this.mode !== 'secret') { this.plates.shift(); this.plates.push(6 + Math.floor(Math.random() * 10)); } }, 2200);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); clearInterval(this.tick); }
+  setMode(m) { this.mode = m; this.setState({ mode: m }); }
+  ctx(i) {
+    const c = this.cv[i]; if (!c) return null;
+    const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    return { g, w, h };
+  }
+  // isometric box: x along right-down, y along left-down, z up
+  box(g, ox, oy, x, y, z, w, d, h, o) {
+    const C = 0.866, S = 0.5;
+    const P = (a, b, c) => [ox + (a - b) * C, oy + (a + b) * S - c];
+    const top = [P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)];
+    const left = [P(x, y + d, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x, y + d, z + h)];
+    const right = [P(x + w, y, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x + w, y, z + h)];
+    const face = (pts, fill) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = o.stroke; g.lineWidth = o.lw || 1; g.lineJoin = 'round'; g.stroke(); };
+    face(left, o.left || '#08090A'); face(right, o.right || '#0C0D0F'); face(top, o.top || '#111215');
+  }
+  drawAll(t) {
+    const s = this.reduced ? 0 : (t - this.t0) / 1000, m = this.mode;
+    const edge = 'rgba(226,228,231,0.42)', dim = 'rgba(226,228,231,0.22)', red = '#EB5757';
+    // 1 · ledger plates
+    let k = this.ctx(0);
+    if (k) {
+      const { g, w, h } = k, ox = w * 0.36, oy = h * 0.42;
+      this.plates.forEach((v, i) => {
+        const blocked = m === 'secret' && i === this.plates.length - 1;
+        const bob = this.reduced ? 0 : Math.sin(s * 1.4 + i * 0.5) * 1.2;
+        this.box(g, ox, oy, i * 13 - 60, -60, 0, 6, 150, v * 11 + bob, { stroke: blocked ? red : (i === this.plates.length - 1 ? 'rgba(242,243,245,0.85)' : edge), lw: blocked ? 1.6 : 1, top: blocked ? 'rgba(235,87,87,0.18)' : '#131417' });
+      });
+    }
+    // 2 · data reduction slabs
+    k = this.ctx(1);
+    if (k) {
+      const { g, w, h } = k, ox = w * 0.30, oy = h * 0.40;
+      const hs = [150, 104, 38, 4];
+      const labels = ['raw logs', 'gate 1 · redact', 'gate 2 · allow-list', m === 'secret' ? 'gate 3 · blocked' : 'sent'];
+      hs.forEach((hh, i) => {
+        const breathe = this.reduced ? 0 : Math.sin(s * 1.2 - i * 0.6) * (i === 3 ? 0.6 : 1.5);
+        const isLast = i === 3;
+        this.box(g, ox, oy, i * 62 - 40, -20, 0, 34, 110, Math.max(2, hh + breathe), { stroke: isLast && m === 'secret' ? red : (isLast ? 'rgba(242,243,245,0.9)' : edge), lw: isLast ? 1.5 : 1, top: isLast && m === 'secret' ? 'rgba(235,87,87,0.2)' : '#131417' });
+        const C = 0.866, S = 0.5, lx = ox + ((i * 62 - 40 + 17) - (-20 + 110)) * C, ly = oy + ((i * 62 - 40 + 17) + (-20 + 110)) * S + 18;
+        g.font = '11px Inter'; g.fillStyle = isLast && m === 'secret' ? red : '#8A8F98'; g.textAlign = 'center'; g.fillText(labels[i], lx, ly);
+      });
+    }
+    // 3 · fleet city
+    k = this.ctx(2);
+    if (k) {
+      const { g, w, h } = k, ox = w * 0.5, oy = h * 0.30;
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) {
+        const i = r * 6 + c; let v = this.cpu[i];
+        let col = edge, top = '#131417';
+        if (i === 9) { col = '#F2C94C'; top = 'rgba(242,201,76,0.16)'; }
+        if (m === 'cpu' && i === 14) { v = 92; col = red; top = 'rgba(235,87,87,0.2)'; }
+        const wob = this.reduced ? 0 : Math.sin(s * 1.1 + i) * 1.5;
+        this.box(g, ox, oy, c * 30 - 60, r * 30 - 60, 0, 20, 20, v * 1.15 + wob, { stroke: col, lw: col === edge ? 1 : 1.5, top });
+      }
+    }
+    // 4 · latency budget
+    k = this.ctx(3);
+    if (k) {
+      const { g, w, h } = k, ox = w * 0.40, oy = h * 0.55;
+      const steps = [2.5, 1.2, 0.3, 0.5, 0.3], scale = 24;
+      g.setLineDash([4, 4]); this.box(g, ox, oy, -40, -10, 0, 10 * scale, 70, 70, { stroke: dim, top: 'rgba(0,0,0,0)', left: 'rgba(0,0,0,0)', right: 'rgba(0,0,0,0)' }); g.setLineDash([]);
+      let x = -40;
+      steps.forEach((v, i) => {
+        const grow = this.reduced ? 1 : Math.min(1, ((s % 6) / 1.5) - i * 0.12 + 0.6);
+        const wv = v * scale * Math.max(0.05, grow);
+        this.box(g, ox, oy, x, -10, 0, wv, 70, 46 + i * 6, { stroke: edge, top: '#131417' });
+        x += v * scale;
+      });
+      const C = 0.866, S = 0.5, tx = ox + ((-40 + 10 * scale) - (-10)) * C + 8, ty = oy + ((-40 + 10 * scale) + (-10)) * S - 74;
+      g.font = '11px Inter'; g.fillStyle = '#8A8F98'; g.textAlign = 'left'; g.fillText('10 s budget', tx, ty);
+    }
+  }
+  renderVals() {
+    const m = this.state.mode;
+    const base = 'padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12.5px; ';
+    const on = base + 'background: #1F2024; color: #F2F3F5', off = base + 'background: transparent; color: #8A8F98';
+    return {
+      r1: this.refs4[0], r2: this.refs4[1], r3: this.refs4[2], r4: this.refs4[3],
+      setCalm: () => this.setMode('calm'), setSecret: () => this.setMode('secret'), setCpu: () => this.setMode('cpu'),
+      bCalm: m === 'calm' ? on : off, bSecret: m === 'secret' ? on : off, bCpu: m === 'cpu' ? on : off,
+      ledgerBig: m === 'secret' ? '1 blocked' : '1,042 sent',
+      ledgerSub: m === 'secret' ? 'A password appeared in a log. The payload stopped at the collector; nothing reached the cloud.' : 'Every plate is a payload. Each one is hash-chained and its receipt matched.',
+      reduceSub: m === 'secret' ? '2.4 MB of raw logs stayed on the collector. The last payload was blocked at gate 3.' : '2.4 MB of raw logs stayed on the collector. 2.1 KB of metadata left.',
+      fleetBig: m === 'cpu' ? '1 machine poor' : '29 of 30 healthy',
+      fleetSub: m === 'cpu' ? 'CPU at 92% on a checkout host with flat load. Incident INC-014 opened 2 s after the breach.' : 'One tower per machine, height is CPU. One collector is reporting late.'
+    };
+  }
+}
+</script>
+</body>
+</html>
