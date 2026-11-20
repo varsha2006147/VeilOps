@@ -101,3 +101,28 @@ def test_empty_records_rejected():
     d = mutated(lambda d: d.update(records=[]))
     with pytest.raises(ValidationError):
         parse(d)
+
+
+def test_metric_record_rps_unit_allowed():
+    d = mutated(lambda d: d["records"][0].update(metric="load.req_rate", unit="rps"))
+    e = parse(d)
+    assert e.records[0].unit == "rps"
+    assert e.records[0].metric == "load.req_rate"
+
+
+def test_security_summary_spray_and_stuffing_categories_allowed():
+    for cat in ["auth.spray", "auth.stuffing"]:
+        d = mutated(lambda d, c=cat: d["records"][1].update(category=c))
+        e = parse(d)
+        assert e.records[1].category == cat
+
+
+def test_topology_edge_connects_via_allowed():
+    d = mutated(lambda d: d["records"].append({
+        "type": "topology",
+        "edges": [{"src": "svc_1a2b3c4d5e", "dst": "lnk_9a8b7c6d5e", "rel": "connects_via"}],
+        "event_ts": "2026-11-21T04:12:00.000Z",
+    }))
+    e = parse(d)
+    assert e.records[-1].type == "topology"
+    assert e.records[-1].edges[0].rel == "connects_via"
