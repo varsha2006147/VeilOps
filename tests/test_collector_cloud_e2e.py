@@ -115,7 +115,12 @@ async def test_collector_enrolls_ships_pseudonymised_data_and_survives_outage(cl
     link = CloudLink(cfg, bus, ctx, tmp_path)
     await link.setup()
     assert link.status["enrolled"] and cfg.collector_id.startswith("col_")      # identity from the cloud
-    tasks = [asyncio.create_task(link.bridge.run()), asyncio.create_task(link.send_loop())]
+    from veilops.collector.topology import Edge, Topology
+    bus.topology = Topology(edges=[Edge("app-01", "host", "core-sw1", "link", "connects_via"),
+                                   Edge("checkout", "service", "app-01", "host", "runs_on")], version=1)
+    bus.topology_changed.set()
+    tasks = [asyncio.create_task(link.bridge.run()), asyncio.create_task(link.send_loop()),
+             asyncio.create_task(link.topology_loop())]
     try:
         t0 = datetime.now(timezone.utc) - timedelta(minutes=2)
         for w in _windows(t0, 6):
@@ -152,6 +157,7 @@ async def test_collector_enrolls_ships_pseudonymised_data_and_survives_outage(cl
     conn = await asyncpg.connect(_admin_dsn("veilops"))
     try:
         rows = await conn.fetch("SELECT DISTINCT entity FROM metric_points")
+        edges = await conn.fetch("SELECT collector_id,source_entity,target_entity,relation FROM topology_edges")
         receipts = await conn.fetchval("SELECT count(*) FROM ingest_receipts")
         seqs = [r["seq"] for r in await conn.fetch("SELECT seq FROM ingest_receipts ORDER BY seq")]
     finally:
@@ -160,6 +166,12 @@ async def test_collector_enrolls_ships_pseudonymised_data_and_survives_outage(cl
     assert len(entities) == 2 and all(e.startswith("h_") for e in entities)    # pseudonyms only
     assert not any(name in e for e in entities for name in REAL_NAMES)
     assert seqs == list(range(1, receipts + 1))                                  # 0 lost, 0 duplicated
+    # network map arrived, scoped to this collector, and joins to the metric entities
+    assert {(e["relation"]) for e in edges} == {"connects_via", "runs_on"}
+    assert all(e["collector_id"] == cfg.collector_id for e in edges)
+    host = [e for e in edges if e["relation"] == "connects_via"][0]
+    assert host["source_entity"] in entities and host["target_entity"].startswith("lnk_")
+    assert link.status["topology"]["version_sent"] == 1 and link.status["topology"]["edges"] == 2
 
 
 async def _is(value):

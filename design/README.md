@@ -30,6 +30,7 @@ python -m cloud.scripts.dev_token --user zainab --tenant t_acme --role approver 
 | demo buttons (`/demo/inject`) | `POST :8100/local/chaos/{scenario}` | `collector_chaos.json` |
 | alerts | `GET /api/v1/alerts` · false alarm: `POST /api/v1/alerts/{id}/feedback {"verdict":"false_alarm"}` | `cloud_alerts.json` |
 | incidents | `GET /api/v1/incidents`, `GET /api/v1/incidents/{id}` | `cloud_incidents.json` (**empty until incident correlation lands — use fixtures**) |
+| network map (what depends on what) | `GET /api/v1/topology` | `cloud_topology.json` |
 | entity lanes (Recorder) | `GET /api/v1/entities/{id}/metrics?since=&limit=` · `/health-history` | `cloud_entity_metrics.json` |
 | approve / dry run | `POST /api/v1/actions` then `POST /api/v1/actions/{id}/approve` by a different approver | `cloud_actions_create.json` |
 | summary / judge rings (`/summary/today`) | `GET /api/v1/slo` (+ `/api/v1/reconciliation`, `/api/v1/slo/export.csv`) | `cloud_slo.json`, `cloud_reconciliation.json` |
