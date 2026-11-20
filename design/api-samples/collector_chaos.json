@@ -1,0 +1,10 @@
+{
+  "request": "POST http://localhost:8100/local/chaos/cpu_drift",
+  "note": "Demo buttons. scenarios: cpu_drift, load_spike, mem_leak, latency, failed_logins, spray, secret, disk_fill, svc_down, out_of_order, dupes",
+  "response": {
+    "scenario": "latency",
+    "injected_at": "2026-11-20T18:43:16.397Z",
+    "target": null,
+    "duration_s": 75
+  }
+}

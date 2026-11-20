@@ -1,0 +1,176 @@
+{
+  "request": "GET /api/v1/slo?limit=5",
+  "note": "Summary rings + Evidence panel. evaluation = pass|fail|insufficient_data.",
+  "response": {
+    "tenant_id": "t_acme",
+    "generated_at": "2026-11-20T18:43:16.329089+00:00",
+    "measurement_window": {
+      "recent": "last 5 minutes by observed_ts",
+      "since_start": "2026-11-20T18:41:14.054329+00:00",
+      "now": "2026-11-20T18:43:16.329089+00:00"
+    },
+    "targets": {
+      "collection_to_dashboard_p95_ms": 10000,
+      "breach_to_alert_p95_ms": 15000,
+      "collector_offline_detection_max_ms": 60000,
+      "collector_offline_detection_design_ms": 30000,
+      "missing_sequences": 0,
+      "duplicate_records_stored": 0
+    },
+    "collection_to_dashboard": {
+      "recent_5m": {
+        "count": 1,
+        "p50_ms": 7384.0,
+        "p95_ms": 7384.0,
+        "max_ms": 7384.0
+      },
+      "since_start": {
+        "count": 1,
+        "p50_ms": 7384.0,
+        "p95_ms": 7384.0,
+        "max_ms": 7384.0
+      },
+      "all_time": {
+        "count": 1,
+        "p50_ms": 7384.0,
+        "p95_ms": 7384.0,
+        "max_ms": 7384.0
+      }
+    },
+    "breach_to_alert": {
+      "recent_5m": {
+        "count": 1,
+        "p50_ms": 2884.0,
+        "p95_ms": 2884.0,
+        "max_ms": 2884.0
+      },
+      "since_start": {
+        "count": 1,
+        "p50_ms": 2884.0,
+        "p95_ms": 2884.0,
+        "max_ms": 2884.0
+      },
+      "all_time": {
+        "count": 1,
+        "p50_ms": 2884.0,
+        "p95_ms": 2884.0,
+        "max_ms": 2884.0
+      },
+      "injections": []
+    },
+    "collector_offline_detection": {
+      "recent_5m": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "max_ms": null
+      },
+      "since_start": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "max_ms": null
+      },
+      "all_time": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "max_ms": null
+      },
+      "collectors": [
+        {
+          "collector_id": "col_790382970ed340e6",
+          "state": "Excellent",
+          "reasons": [
+            "heartbeat_recent"
+          ],
+          "last_heartbeat": "2026-11-20T18:43:13.649000+00:00",
+          "last_offline_detection": null
+        }
+      ]
+    },
+    "reconciliation": {
+      "collectors": [
+        {
+          "collector_id": "col_790382970ed340e6",
+          "sent_range": null,
+          "received_range": [
+            1,
+            25
+          ],
+          "received_count": 25,
+          "missing_count": 0,
+          "missing_sequences": [],
+          "duplicates_rejected": {
+            "duplicate_payload": 0,
+            "sequence_conflict": 0,
+            "idempotency_conflict": 0,
+            "total": 0
+          },
+          "backlog": {
+            "episodes": 0,
+            "last_drain_ms": null,
+            "last_drained_at": null,
+            "draining_now": false,
+            "peak_depth": 0
+          },
+          "last_run": null,
+          "status": "reconciled"
+        }
+      ],
+      "sent_count": 0,
+      "received_count": 25,
+      "missing_count": 0,
+      "duplicates_rejected": 0,
+      "duplicate_records_stored": 0,
+      "backlog_last_drain_ms": null
+    },
+    "quality": {
+      "raw_alerts": 2,
+      "deduplicated_alerts": 2,
+      "incidents": 0,
+      "alert_to_incident_ratio": null,
+      "noise_reduction_pct": null,
+      "false_alarms": 0,
+      "not_an_issue": 0,
+      "confirmed_valid": 0,
+      "reviewed_alerts": 0,
+      "false_alarm_source": "operator feedback (alert_feedback)"
+    },
+    "evaluation": {
+      "collection_to_dashboard": "pass",
+      "breach_to_alert": "pass",
+      "collector_offline_detection": "insufficient_data",
+      "zero_loss": "pass",
+      "zero_duplicates": "pass"
+    },
+    "notes": [
+      "Collection->dashboard = browser rendered_at (corrected by the measured browser/server clock offset) minus the record's original event_ts looked up server-side; server arrival time is never used.",
+      "Breach->alert = alerts.created_at (cloud) minus the start of the first breaching metric window (conservative: resolution is the collector window, default 5 s).",
+      "Offline detection = watchdog transition to Poor minus the last heartbeat timestamp."
+    ],
+    "samples": [
+      {
+        "kind": "collection_to_ingest",
+        "sample_key": "01a1fa45-0e13-728a-be3d-725445021e8b",
+        "event_ts": "2026-11-20T18:43:05+00:00",
+        "observed_ts": "2026-11-20T18:43:12.298255+00:00",
+        "delay_ms": 7298
+      },
+      {
+        "kind": "threshold_to_alert",
+        "sample_key": "01a1fa45-0522-747d-bb7e-deca86652f6a",
+        "event_ts": "2026-11-20T18:43:09.693000+00:00",
+        "observed_ts": "2026-11-20T18:43:10.153558+00:00",
+        "delay_ms": 460
+      },
+      {
+        "kind": "collection_to_ingest",
+        "sample_key": "01a1fa45-0523-7167-a835-894c46528d25",
+        "event_ts": "2026-11-20T18:43:09.693000+00:00",
+        "observed_ts": "2026-11-20T18:43:09.812613+00:00",
+        "delay_ms": 119
+      }
+    ]
+  }
+}

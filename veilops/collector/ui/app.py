@@ -37,6 +37,12 @@ def _ser(obj) -> dict:
 
 def create_app(ctx: UIContext) -> FastAPI:
     app = FastAPI(title="VeilOps Collector (local)", docs_url="/local/docs")
+    import os
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(  # local dashboard dev server may read the egress ledger / trigger chaos
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()],
+        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
     page = (Path(__file__).parent / "index.html").read_text()
 
     @app.get("/", response_class=HTMLResponse)

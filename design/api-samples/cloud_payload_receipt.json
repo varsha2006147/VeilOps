@@ -1,0 +1,14 @@
+{
+  "request": "GET /api/v1/payloads/01a1fa44-d359-76cd-aede-4ea62e6b479f",
+  "note": "ledger row detail by payload_id",
+  "response": {
+    "receipt": {
+      "payload_id": "01a1fa44-d359-76cd-aede-4ea62e6b479f",
+      "collector_id": "col_790382970ed340e6",
+      "seq": 21,
+      "payload_hash": "sha256:8eea4a914d26d4e452c6fdcbf9a6949c006f86df86d31d268b94e2d97ebd6f87",
+      "sent_at": "2026-11-20T18:42:56.984000+00:00",
+      "received_at": "2026-11-20T18:42:57.209055+00:00"
+    }
+  }
+}

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VeilOps · Summary</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:inherit}button{font:inherit}
+.tb:hover{color:#E2E4E7}
+.g{transition:stroke-dasharray 1.4s cubic-bezier(.2,.7,.2,1)}
+@media (prefers-reduced-motion: reduce){.g{transition:none}}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C0E; color: #E2E4E7; font-family: Inter, system-ui, sans-serif; font-size: 13px; letter-spacing: -0.006em; display: flex; flex-direction: column">
+
+<header style="display: flex; align-items: center; gap: 22px; height: 52px; padding: 0 28px; border-bottom: 1px solid #1B1C20">
+<span style="display: flex; align-items: center; gap: 8px; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2E4E7" stroke-width="1.7" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9.5C7.2 20 4 16.5 4 12V6z"/></svg>VeilOps</span>
+<span style="color: #6B6F76">acme</span>
+<nav aria-label="Views" style="display: flex; gap: 20px; color: #8A8F98">
+<a href="Live.dc.html" class="tb" style="text-decoration: none">Live</a>
+<a href="Recorder.dc.html" class="tb" style="text-decoration: none">Incidents</a>
+<a href="Summary.dc.html" style="color: #F2F3F5; text-decoration: none; box-shadow: inset 0 -2px 0 #E2E4E7; padding: 16px 0">Summary</a>
+<a href="Overview.dc.html" class="tb" style="text-decoration: none">How it works</a>
+</nav>
+<div style="flex: 1"></div>
+<span style="color: #6B6F76">Today · since 00:00 UTC</span>
+</header>
+
+<main style="flex: 1; padding: 32px 48px; display: flex; flex-direction: column; gap: 28px; max-width: 1344px; width: 100%; box-sizing: border-box; margin: 0 auto">
+<div style="display: flex; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px; flex: 1">
+<span style="color: #6B6F76; font-size: 11.5px; letter-spacing: .12em">SUMMARY</span>
+<span style="font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: #F2F3F5">6 of 6 targets met today</span>
+</div>
+<span style="color: #6B6F76; font-size: 12px">Each ring shows today's value. The small mark is the target.</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #1B1C20; border: 1px solid #1B1C20; border-radius: 10px; overflow: hidden">
+<sc-for list="{{ gauges }}" as="g" hint-placeholder-count="6">
+<div style="background: #0D0E10; padding: 22px 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<svg width="200" height="160" viewBox="0 0 200 160" role="img" aria-label="{{ g.aria }}">
+<circle cx="100" cy="96" r="70" fill="none" stroke="#1D1E22" stroke-width="10" stroke-linecap="round" stroke-dasharray="293.2 439.8" transform="rotate(150 100 96)"/>
+<circle class="g" cx="100" cy="96" r="70" fill="none" stroke="{{ g.col }}" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ g.dash }}" transform="rotate(150 100 96)"/>
+<line x1="{{ g.tx1 }}" y1="{{ g.ty1 }}" x2="{{ g.tx2 }}" y2="{{ g.ty2 }}" stroke="#9C9FA5" stroke-width="2"/>
+<text x="100" y="98" text-anchor="middle" fill="#F2F3F5" font-size="30" font-weight="500" font-family="Inter, sans-serif" letter-spacing="-1">{{ g.val }}</text>
+<text x="100" y="120" text-anchor="middle" fill="#6B6F76" font-size="11.5" font-family="Inter, sans-serif">{{ g.unit }}</text>
+<text x="38" y="154" text-anchor="middle" fill="#4E5157" font-size="10" font-family="JetBrains Mono, monospace">{{ g.lo }}</text>
+<text x="162" y="154" text-anchor="middle" fill="#4E5157" font-size="10" font-family="JetBrains Mono, monospace">{{ g.hi }}</text>
+</svg>
+<span style="color: #E2E4E7; font-weight: 500">{{ g.name }}</span>
+<span style="color: #6B6F76; font-size: 12px">{{ g.target }} · <span style="color: {{ g.statCol }}">{{ g.stat }}</span></span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 1px solid #1B1C20; border-bottom: 1px solid #1B1C20">
+<sc-for list="{{ counts }}" as="c" hint-placeholder-count="6">
+<div style="padding: 16px 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: {{ c.col }}">{{ c.v }}</span>
+<span style="color: #6B6F76; font-size: 12px">{{ c.k }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; gap: 22px; color: #6B6F76; font-size: 12px">
+<a href="Recorder.dc.html" class="tb" style="text-decoration: none">3 incidents open →</a>
+<a href="Live.dc.html" class="tb" style="text-decoration: none">Watch payloads cross →</a>
+<span style="flex: 1"></span>
+<span>Targets are the CICADA judging limits.</span>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { a: 0 }; }
+  componentDidMount() { this.t = setTimeout(() => this.setState({ a: 1 }), 120); }
+  componentWillUnmount() { clearTimeout(this.t); }
+  renderVals() {
+    const ARC = 293.2, C = 439.8, a = this.state.a;
+    const defs = [
+      { name: 'Fleet health', val: 92, show: '92', unit: 'of 100', lo: '0', hi: '100', max: 100, tgt: 90, better: 'hi', target: 'target ≥ 90' },
+      { name: 'Collection → dashboard', val: 6.2, show: '6.2', unit: 'seconds · p95', lo: '0', hi: '20 s', max: 20, tgt: 10, better: 'lo', target: 'target ≤ 10 s' },
+      { name: 'Breach → alert', val: 2.0, show: '2.0', unit: 'seconds', lo: '0', hi: '30 s', max: 30, tgt: 15, better: 'lo', target: 'target ≤ 15 s' },
+      { name: 'Offline detected in', val: 41, show: '41', unit: 'seconds', lo: '0', hi: '90 s', max: 90, tgt: 60, better: 'lo', target: 'target ≤ 60 s' },
+      { name: 'Raw data kept local', val: 99.91, show: '99.91', unit: 'percent', lo: '0', hi: '100', max: 100, tgt: 99, better: 'hi', target: 'target ≥ 99%' },
+      { name: 'Receipts matched', val: 100, show: '1042', unit: 'of 1042 payloads', lo: '0', hi: 'all', max: 100, tgt: 100, better: 'hi', target: '0 lost · 0 duplicated' }
+    ];
+    const pt = (f, r) => { const ang = (150 + 240 * f) * Math.PI / 180; return [100 + r * Math.cos(ang), 96 + r * Math.sin(ang)]; };
+    const gauges = defs.map((d) => {
+      const f = Math.min(1, d.val / d.max), ok = d.better === 'hi' ? d.val >= d.tgt : d.val <= d.tgt;
+      const tf = d.tgt / d.max, [x1, y1] = pt(tf, 60), [x2, y2] = pt(tf, 80);
+      return { name: d.name, val: d.show, unit: d.unit, lo: d.lo, hi: d.hi, target: d.target,
+        dash: (ARC * f * a).toFixed(1) + ' ' + C, col: ok ? '#E2E4E7' : '#F2C94C',
+        stat: ok ? 'pass' : 'at risk', statCol: ok ? '#9C9FA5' : '#F2C94C',
+        tx1: x1.toFixed(1), ty1: y1.toFixed(1), tx2: x2.toFixed(1), ty2: y2.toFixed(1),
+        aria: d.name + ' ' + d.show + ' ' + d.unit + ', ' + d.target };
+    });
+    const counts = [
+      { v: '4 / 4', k: 'collectors online', col: '#F2F3F5' },
+      { v: '1,042', k: 'payloads sent', col: '#F2F3F5' },
+      { v: '2.1 KB', k: 'crossed the boundary', col: '#F2F3F5' },
+      { v: '4', k: 'secrets redacted', col: '#F2F3F5' },
+      { v: '1', k: 'payload blocked', col: '#EB5757' },
+      { v: '17 → 5', k: 'alerts merged into incidents', col: '#F2F3F5' }
+    ];
+    return { gauges, counts };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "request": "GET /api/v1/entities/h_311fac50c2/metrics?limit=3",
+  "note": "newest first; one row per 5 s window per metric.",
+  "response": {
+    "entity": "h_311fac50c2",
+    "metrics": [
+      {
+        "entity": "h_311fac50c2",
+        "metric": "cpu.util_pct",
+        "event_ts": "2026-11-20T18:43:05+00:00",
+        "source_tz": "Asia/Kolkata",
+        "avg": 39.1556,
+        "min": 37.279,
+        "max": 41.406,
+        "p95": 41.406,
+        "count": 5
+      },
+      {
+        "entity": "h_311fac50c2",
+        "metric": "mem.util_pct",
+        "event_ts": "2026-11-20T18:43:05+00:00",
+        "source_tz": "Asia/Kolkata",
+        "avg": 57.833,
+        "min": 56.519,
+        "max": 58.792,
+        "p95": 58.792,
+        "count": 5
+      },
+      {
+        "entity": "h_311fac50c2",
+        "metric": "disk.util_pct",
+        "event_ts": "2026-11-20T18:43:05+00:00",
+        "source_tz": "Asia/Kolkata",
+        "avg": 52.0304,
+        "min": 52.03,
+        "max": 52.031,
+        "p95": 52.031,
+        "count": 5
+      }
+    ]
+  }
+}

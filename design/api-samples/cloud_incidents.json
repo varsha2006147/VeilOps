@@ -1,0 +1,7 @@
+{
+  "request": "GET /api/v1/incidents",
+  "note": "EMPTY until the incident correlation (Person D) is built. Use fixtures for the Incidents screen.",
+  "response": {
+    "incidents": []
+  }
+}
