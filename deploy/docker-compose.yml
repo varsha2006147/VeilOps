@@ -2,6 +2,7 @@ name: veilops-cloud-core
 
 services:
   postgres:
+    restart: unless-stopped
     image: postgres:16
     environment:
       POSTGRES_DB: veilops
@@ -19,6 +20,7 @@ services:
       retries: 10
 
   redis:
+    restart: unless-stopped
     image: redis:7
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -32,6 +34,7 @@ services:
       retries: 10
 
   cloud-api:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: cloud/Dockerfile
@@ -59,8 +62,8 @@ services:
     image: caddy:2
     profiles: ["edge"]
     environment:
-      VEILOPS_DOMAIN: ${VEILOPS_DOMAIN:?Set VEILOPS_DOMAIN to a DNS name pointing at this host}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for certificate notifications}
+      VEILOPS_DOMAIN: ${VEILOPS_DOMAIN:-localhost}   # real DNS name -> Let's Encrypt; localhost -> Caddy internal CA
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
     ports:
       - "80:80"
       - "443:443"
