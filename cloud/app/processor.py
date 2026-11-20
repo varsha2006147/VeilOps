@@ -115,7 +115,7 @@ class StreamProcessor:
         await conn.execute(
             """INSERT INTO event_time_watermarks
                (tenant_id,entity,metric,max_event_ts,watermark_ts)
-               VALUES($1,$2,$3,$4,$4 - INTERVAL '5 minutes')
+               VALUES($1,$2,$3,$4::timestamptz,$4::timestamptz - INTERVAL '5 minutes')
                ON CONFLICT(tenant_id,entity,metric) DO NOTHING""",
             tenant_id, record["entity"], record["metric"], event_ts,
         )
