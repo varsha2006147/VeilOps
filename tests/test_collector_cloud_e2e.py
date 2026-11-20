@@ -156,6 +156,12 @@ async def test_collector_enrolls_ships_pseudonymised_data_and_survives_outage(cl
 
     conn = await asyncpg.connect(_admin_dsn("veilops"))
     try:
+        # Receipts are synchronous; the writer stores metrics a moment later. Messages a stopped cloud had
+        # read but not ACKed are reclaimed after 30 s idle (XAUTOCLAIM), so allow for that.
+        async def stored():
+            return ((await conn.fetchval("SELECT count(*) FROM metric_points")) == len(_windows(t0, 36))
+                    and (await conn.fetchval("SELECT count(*) FROM topology_edges")) == 2)
+        await _until(stored, timeout=45)
         rows = await conn.fetch("SELECT DISTINCT entity FROM metric_points")
         edges = await conn.fetch("SELECT collector_id,source_entity,target_entity,relation FROM topology_edges")
         receipts = await conn.fetchval("SELECT count(*) FROM ingest_receipts")
