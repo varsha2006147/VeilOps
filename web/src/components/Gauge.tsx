@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 
 export interface GaugeProps {
-  name: string; value: number; display: string; unit: string;
-  minLabel: string; maxLabel: string; max: number; target: number;
+  name: string; value: number | null; display: string; unit: string;
+  minLabel: string; maxLabel: string; max: number | null; target: number | null;
   better: 'hi' | 'lo'; targetText: string;
   // Receipt equality also requires no lost or duplicate payloads.
   passed?: boolean;
 }
 
-export function meetsTarget(value: number, target: number, better: 'hi' | 'lo') {
-  return better === 'hi' ? value >= target : value <= target;
+export function meetsTarget(value: number | null, target: number | null, better: 'hi' | 'lo') {
+  return value !== null && target !== null && (better === 'hi' ? value >= target : value <= target);
 }
 
 export default function Gauge(props: GaugeProps) {
@@ -21,9 +21,9 @@ export default function Gauge(props: GaugeProps) {
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
   }, []);
   const passed = props.passed ?? meetsTarget(value, target, better);
-  const fraction = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  const angle = (150 + 240 * (max > 0 ? Math.max(0, Math.min(1, target / max)) : 0)) * Math.PI / 180;
-  return <section className="gauge-cell" aria-label={`${name}: ${display} ${unit}. ${targetText}. ${passed ? 'pass' : 'at risk'}`}>
+  const fraction = max !== null && max > 0 && value !== null ? Math.max(0, Math.min(1, value / max)) : 0;
+  const angle = (150 + 240 * (max !== null && max > 0 && target !== null ? Math.max(0, Math.min(1, target / max)) : 0)) * Math.PI / 180;
+  return <section className="gauge-cell" aria-label={`${name}: ${display} ${unit}. ${targetText}. ${value === null ? '—' : passed ? 'pass' : 'at risk'}`}>
     <svg width="200" height="160" viewBox="0 0 200 160" aria-hidden="true">
       <circle cx="100" cy="96" r="70" fill="none" stroke="#1D1E22" strokeWidth="10" strokeLinecap="round"
         strokeDasharray="293.2 439.8" transform="rotate(150 100 96)" />
@@ -39,6 +39,6 @@ export default function Gauge(props: GaugeProps) {
       <text x="170" y="153" textAnchor="middle" className="gauge-limit">{maxLabel}</text>
     </svg>
     <h2>{name}</h2>
-    <p>{targetText} · <span className={passed ? 'gauge-pass' : 'gauge-risk'}>{passed ? 'pass' : 'at risk'}</span></p>
+    <p>{targetText} · <span className={value === null || passed ? 'gauge-pass' : 'gauge-risk'}>{value === null ? '—' : passed ? 'pass' : 'at risk'}</span></p>
   </section>;
 }

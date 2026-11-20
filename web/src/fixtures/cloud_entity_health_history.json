@@ -1,0 +1,17 @@
+{
+  "entity": "h_311fac50c2",
+  "transitions": [
+    {
+      "from_state": "Excellent",
+      "to_state": "Poor",
+      "reasons": "[\"heartbeat_recent\", \"cpu.util_pct:poor\"]",
+      "at_utc": "2026-11-21T00:12:34.253711+05:30"
+    },
+    {
+      "from_state": null,
+      "to_state": "Excellent",
+      "reasons": "[\"heartbeat_recent\"]",
+      "at_utc": "2026-11-21T00:11:24.09875+05:30"
+    }
+  ]
+}

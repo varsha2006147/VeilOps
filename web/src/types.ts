@@ -1,4 +1,4 @@
-// Provisional dashboard contracts; align with cloud/api/openapi.json when published.
+// Presentation models. Wire contracts derived from API samples live in api-types.ts.
 export interface LiveData {
   tenant: string;
   windowSeconds: number;
@@ -40,22 +40,22 @@ export interface ApiResponses {
 }
 
 export interface TodaySummary {
-  fleetHealth: number;
-  collectionToDashboardP95Seconds: number;
-  breachToAlertSeconds: number;
-  offlineDetectedSeconds: number;
-  rawDataLocalPercent: number;
-  receiptsMatched: number;
-  collectorsOnline: number;
-  payloadsSent: number;
-  crossedBoundaryKb: number;
-  secretsRedacted: number;
-  payloadsBlocked: number;
-  alertsMerged: number;
-  incidentsCreated: number;
-  openIncidents: number;
-  payloadsLost: number;
-  payloadsDuplicated: number;
+  fleetHealth: number | null;
+  collectionToDashboardP95Seconds: number | null;
+  breachToAlertSeconds: number | null;
+  offlineDetectedSeconds: number | null;
+  rawDataLocalPercent: number | null;
+  receiptsMatched: number | null;
+  collectorsOnline: number | null;
+  payloadsSent: number | null;
+  crossedBoundaryKb: number | null;
+  secretsRedacted: number | null;
+  payloadsBlocked: number | null;
+  alertsMerged: number | null;
+  incidentsCreated: number | null;
+  openIncidents: number | null;
+  payloadsLost: number | null;
+  payloadsDuplicated: number | null;
 }
 
 export type DemoMode = 'calm' | 'secret' | 'cpu_drift';
@@ -80,13 +80,13 @@ export interface ActionResult {
   id: string; status: 'queued' | 'running' | 'completed' | 'failed';
 }
 export interface Collector {
-  id: string; city: string; cpu: number; history: number[]; rtt: number; lateSeconds?: number;
+  id: string; city: string; cpu: number | null; history: number[]; rtt: number | null; lateSeconds?: number;
 }
-export interface FleetData { collectors: Collector[]; rawMb: number; secretsRedacted: number; }
+export interface FleetData { collectors: Collector[]; rawMb: number | null; secretsRedacted: number | null; }
 export interface LedgerEntry {
-  id: number; collector: string; fields: string[]; records: number; hash: string; receipt: 'matched' | 'blocked';
+  id: number; collector: string; fields: string[]; records: number; hash: string; receipt: 'matched' | 'blocked' | 'pending';
 }
 export interface LedgerData {
-  entries: LedgerEntry[]; crossedKb: number; openIncidents: number;
+  entries: LedgerEntry[]; crossedKb: number | null; openIncidents: number | null;
   incident: { id: string; host: string } | null;
 }

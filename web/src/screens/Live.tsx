@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { api, injectDemo, USE_MOCK } from '../api';
+import { injectDemo, USE_MOCK } from '../api';
+import { useLiveData } from '../live';
+import { loadLive } from '../dashboard';
+import { getMockMode, setMockScenario } from '../fixtures/api';
 import TopBar from '../components/TopBar';
 import CloudStatus from '../components/CloudStatus';
 import Placeholder from '../components/Placeholder';
-import { fleet as initialFleet, advanceFleet } from '../fixtures/fleet';
-import { ledgerForMode } from '../fixtures/ledger';
-import type { Collector, DemoMode, FleetData, LedgerData } from '../types';
+
+import type { Collector, DemoMode } from '../types';
 import '../styles/live.css';
 
-function cpuColor(cpu: number) {
-  return cpu >= 90 ? 'var(--red)' : cpu >= 75 ? 'var(--yellow)' : 'var(--text-3)';
+function cpuColor(cpu: number | null) {
+  return cpu !== null && cpu >= 90 ? 'var(--red)' : cpu !== null && cpu >= 75 ? 'var(--yellow)' : 'var(--text-3)';
 }
 
 function Sparkline({ collector }: { collector: Collector }) {
+  if (!collector.history.length) return <Placeholder />;
   const values = collector.history.slice(-30);
   const points = values.map((v, i) => `${1 + i * 118 / Math.max(1, values.length - 1)},${23 - Math.max(0, Math.min(100, v)) * .22}`).join(' ');
   return <svg width="120" height="24" viewBox="0 0 120 24" role="img"
@@ -23,12 +26,12 @@ function Sparkline({ collector }: { collector: Collector }) {
 }
 
 export default function Live() {
-  const [mode, setMode] = useState<DemoMode>('calm');
-  const [fleet, setFleet] = useState<FleetData | null>(() => USE_MOCK ? structuredClone(initialFleet) : null);
-  const [ledger, setLedger] = useState<LedgerData | null>(() => USE_MOCK ? ledgerForMode('calm') : null);
+  const [mode, setMode] = useState<DemoMode>(getMockMode);
+  const { data, error: loadError, lastUpdated } = useLiveData(loadLive);
+  const fleet = data?.fleet;
+  const ledger = data?.ledger;
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pending, setPending] = useState(false);
   const injection = useRef<AbortController | null>(null);
 
@@ -38,40 +41,11 @@ export default function Live() {
     return () => { window.clearInterval(clock); injection.current?.abort(); };
   }, []);
 
-  useEffect(() => {
-    if (USE_MOCK) {
-      setLedger(ledgerForMode(mode));
-      setFleet(previous => previous ? { ...previous, secretsRedacted: initialFleet.secretsRedacted + (mode === 'secret' ? 1 : 0) } : initialFleet);
-      const timer = window.setInterval(() => {
-        setFleet(previous => advanceFleet(previous ?? initialFleet, mode));
-        setLedger(previous => previous ? { ...previous, crossedKb: previous.crossedKb + .4 } : previous);
-      }, 1600);
-      return () => window.clearInterval(timer);
-    }
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
-      try {
-        const [nextFleet, nextLedger] = await Promise.all([
-          api('/fleet', { signal: controller.signal }),
-          api('/ledger?limit=6', { signal: controller.signal }),
-        ]);
-        if (!controller.signal.aborted) {
-          setFleet(nextFleet); setLedger(nextLedger); setLastUpdated(new Date()); setError('');
-        }
-      } catch {
-        if (!controller.signal.aborted) setError('Connection interrupted. Retrying; displayed data may be stale.');
-      } finally {
-        if (!controller.signal.aborted) timer = setTimeout(poll, 2000);
-      }
-    }
-    void poll();
-    return () => { controller.abort(); clearTimeout(timer); };
-  }, [mode]);
 
   async function selectMode(next: DemoMode) {
     if (pending) return;
-    if (USE_MOCK || next === 'calm') { setMode(next); return; }
+    if (USE_MOCK) { setMockScenario(next); setMode(next); return; }
+    if (next === 'calm') { setMode(next); return; }
     const controller = new AbortController();
     injection.current = controller;
     setPending(true);
@@ -85,11 +59,11 @@ export default function Live() {
 
   const blocked = ledger?.entries.find(entry => entry.receipt === 'blocked');
   const incident = ledger?.incident;
-  const headline = blocked ? 'Nothing secret reached us' : incident ? 'One incident needs approval' : 'All payloads matched their receipts';
+  const headline = !USE_MOCK && !ledger?.entries.length ? '—' : !USE_MOCK && ledger?.entries.some(entry => entry.receipt === 'pending') ? 'Waiting for payload receipts' : blocked ? 'Nothing secret reached us' : incident ? 'One incident needs approval' : 'All payloads matched their receipts';
   const controls = <>
     <div className="demo-control" role="group" aria-label="Demo scenario">
       {([['calm', 'Calm'], ['secret', 'Secret in log'], ['cpu_drift', 'CPU runaway']] as const).map(([value, label]) =>
-        <button key={value} type="button" aria-pressed={mode === value} disabled={pending}
+        <button key={value} type="button" aria-pressed={mode === value} disabled={pending || (!USE_MOCK && value === 'calm')}
           onClick={() => void selectMode(value)}>{label}</button>)}
     </div>
     <time className="utc-clock" dateTime={now.toISOString()}>{now.toISOString().slice(11, 19)} UTC</time>
@@ -97,11 +71,11 @@ export default function Live() {
 
   return <div className="app-shell live-shell">
     <a className="skip-link" href="#main">Skip to content</a>
-    <TopBar controls={controls} />
-    <CloudStatus error={!!error} lastUpdated={lastUpdated} />
+    <TopBar tenant={data?.tenant} controls={controls} />
+    <CloudStatus error={!!error || loadError || data?.online === false} lastUpdated={lastUpdated} message={error || (data?.online === false ? 'Collector cloud link offline — displaying the latest snapshot.' : undefined)} />
     <main id="main" className="live-grid" tabIndex={-1}>
       <section className="network-panel" aria-labelledby="network-title">
-        <div className="eyebrow" id="network-title">Inside acme's network</div>
+        <div className="eyebrow" id="network-title">Inside {data?.tenant ?? '—'}'s network</div>
         <h1>{fleet ? `${fleet.collectors.length} collectors, reading everything locally` : <Placeholder />}</h1>
         <div className="collector-table" role="table" aria-label="Collectors">
           <div className="collector-row collector-head" role="row">
@@ -113,15 +87,15 @@ export default function Live() {
           {fleet?.collectors.map(collector => <div className="collector-row" role="row" key={collector.id}>
             <div role="cell"><span className="collector-city">{collector.city}</span><span className="collector-id mono" title={collector.id}>{collector.id}</span></div>
             <div role="cell"><Sparkline collector={collector} /></div>
-            <div role="cell" className="mono" style={{ color: cpuColor(collector.cpu) }}>{Math.round(collector.cpu)}%</div>
+            <div role="cell" className="mono" style={{ color: cpuColor(collector.cpu) }}>{collector.cpu === null ? '—' : `${Math.round(collector.cpu)}%`}</div>
             <div role="cell" className={`collector-rtt mono${collector.lateSeconds ? ' warning' : ''}`}>
-              {collector.lateSeconds ? `late ${collector.lateSeconds} s` : `${collector.rtt} ms`}
+              {collector.lateSeconds ? `late ${collector.lateSeconds} s` : collector.rtt === null ? '—' : `${collector.rtt} ms`}
             </div>
           </div>)}
         </div>
         <div className="local-stats">
-          <div><span>raw logs kept here</span><strong className="mono">{fleet?.rawMb.toLocaleString() ?? '—'} MB</strong></div>
-          <div><span>secrets redacted</span><strong className="mono">{fleet?.secretsRedacted.toLocaleString() ?? '—'}</strong></div>
+          <div><span>raw logs kept here</span><strong className="mono">{fleet?.rawMb?.toFixed(2) ?? '—'} MB</strong></div>
+          <div><span>secrets redacted</span><strong className="mono">{fleet?.secretsRedacted?.toLocaleString() ?? '—'}</strong></div>
           <div><span>name key</span><strong>never leaves</strong></div>
         </div>
       </section>
@@ -135,21 +109,21 @@ export default function Live() {
             #{entry.id} {entry.receipt === 'blocked' ? '✕' : '→'}
           </span>)}
         </div>
-        <div className="boundary-total"><span className="mono">{ledger ? Math.round(ledger.crossedKb).toLocaleString() : '—'} KB</span><span>crossed today</span></div>
+        <div className="boundary-total"><span className="mono">{ledger?.crossedKb == null ? '—' : ledger.crossedKb.toFixed(2)} KB</span><span>crossed today</span></div>
       </section>
       <section className="cloud-panel" aria-labelledby="cloud-title">
         <div className="eyebrow">VeilOps cloud · metadata only</div>
         <h1 id="cloud-title">{ledger ? headline : <Placeholder />}</h1>
         {incident && <div className="live-alert">
           <div className="alert-meta mono"><span>{incident.id}</span><span>{incident.host}</span></div>
-          <h2>CPU runaway detected</h2>
-          <p>CPU is rising above its normal range. A response needs your approval.</p>
+          <h2>CPU runaway on a checkout host, load flat</h2>
+          <p>6 alerts merged into one. Suggested fix: restart the service (0.84). Opened 2 s after the breach.</p>
           <Link to="/incidents">Open in recorder →</Link>
         </div>}
         {blocked && <div className="live-alert">
           <div className="alert-meta mono"><span>#{blocked.id}</span><span>{blocked.collector}</span></div>
           <h2>A payload was stopped at the boundary</h2>
-          <p>The collector found a password and blocked the whole payload.</p>
+          <p>{USE_MOCK ? 'The collector found a database password in the final bytes and blocked the whole payload. The cloud only received the fact that it happened.' : '—'}</p>
         </div>}
         <div className="ledger-table" role="table" aria-label="Payload ledger">
           <div className="ledger-row ledger-head" role="row">

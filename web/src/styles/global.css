@@ -32,6 +32,9 @@ p { color: var(--text-2); }
 .skip-link:focus { top: 8px; }
 .cloud-status { padding: 8px 28px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 12px; }
 .cloud-status button { margin-left: 12px; padding: 0; background: none; border: 0; color: var(--text-3); text-decoration: underline; }
+.token-bar { display: flex; align-items: center; gap: 12px; padding: 8px 28px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.token-bar input, .token-bar button { border: 1px solid var(--line-2); border-radius: 5px; background: var(--bg); color: var(--text); padding: 4px 10px; }
+.token-bar input { width: 220px; max-width: 100%; }
 .placeholder { display: block; color: var(--muted); min-height: 1.5em; }
 .placeholder-heading { font-size: 22px; margin-bottom: 32px; }
 .collector-row > *, .ledger-row > * { min-width: 0; }

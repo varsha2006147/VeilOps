@@ -1,0 +1,26 @@
+{
+  "alerts": [
+    {
+      "alert_id": "01a1fa45-0522-747d-bb7e-deca86652f6a",
+      "entity": "h_311fac50c2",
+      "rule": "threshold.cpu.high.resolved",
+      "severity": "info",
+      "status": "open",
+      "first_ts": "2026-11-21T00:13:09.693+05:30",
+      "last_ts": "2026-11-21T00:13:09.693+05:30",
+      "occurrences": 1,
+      "context": "{\"params\": {\"peak\": 100.0, \"value\": 41.406, \"threshold\": 90.0}, \"template_id\": \"T_CPU_HIGH_RESOLVED\"}"
+    },
+    {
+      "alert_id": "01a1fa44-38f4-7366-baac-16b44e0e3fcf",
+      "entity": "h_311fac50c2",
+      "rule": "threshold.cpu.high",
+      "severity": "warning",
+      "status": "open",
+      "first_ts": "2026-11-21T00:12:17.429+05:30",
+      "last_ts": "2026-11-21T00:12:17.429+05:30",
+      "occurrences": 1,
+      "context": "{\"params\": {\"of\": 5, \"value\": 91.046, \"breaching\": 3, \"threshold\": 90.0}, \"template_id\": \"T_CPU_HIGH\"}"
+    }
+  ]
+}

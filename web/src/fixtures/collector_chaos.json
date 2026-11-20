@@ -1,0 +1,6 @@
+{
+  "scenario": "latency",
+  "injected_at": "2026-11-20T18:43:16.397Z",
+  "target": null,
+  "duration_s": 75
+}

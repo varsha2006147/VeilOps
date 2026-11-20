@@ -1,0 +1,10 @@
+{
+  "receipt": {
+    "payload_id": "01a1fa44-d359-76cd-aede-4ea62e6b479f",
+    "collector_id": "col_790382970ed340e6",
+    "seq": 21,
+    "payload_hash": "sha256:8eea4a914d26d4e452c6fdcbf9a6949c006f86df86d31d268b94e2d97ebd6f87",
+    "sent_at": "2026-11-21T00:12:56.984+05:30",
+    "received_at": "2026-11-21T00:12:57.209055+05:30"
+  }
+}

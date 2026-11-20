@@ -1,0 +1,44 @@
+{
+  "tenant_id": "t_acme",
+  "collectors": [
+    {
+      "collector_id": "col_790382970ed340e6",
+      "region": "in",
+      "status": "active",
+      "last_heartbeat": "2026-11-21T00:13:13.649+05:30",
+      "entity_count": 8
+    }
+  ],
+  "entities": [
+    {
+      "entity": "h_311fac50c2",
+      "kind": "host",
+      "environment": "demo",
+      "collector_id": "col_790382970ed340e6",
+      "state": "Poor",
+      "reasons": "[\"heartbeat_recent\", \"cpu.util_pct:poor\"]",
+      "since": "2026-11-21T00:12:34.253711+05:30",
+      "last_data_ts": "2026-11-21T00:13:05+05:30"
+    },
+    {
+      "entity": "h_88f02e4857",
+      "kind": "host",
+      "environment": "demo",
+      "collector_id": "col_790382970ed340e6",
+      "state": "Excellent",
+      "reasons": "[\"heartbeat_recent\"]",
+      "since": "2026-11-21T00:11:24.09875+05:30",
+      "last_data_ts": "2026-11-21T00:13:05+05:30"
+    },
+    {
+      "entity": "h_9a2ebf315c",
+      "kind": "host",
+      "environment": "demo",
+      "collector_id": "col_790382970ed340e6",
+      "state": "Good",
+      "reasons": "[\"heartbeat_recent\", \"mem.util_pct:good\"]",
+      "since": "2026-11-21T00:11:44.156045+05:30",
+      "last_data_ts": "2026-11-21T00:13:05+05:30"
+    }
+  ]
+}
