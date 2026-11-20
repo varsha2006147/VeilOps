@@ -187,7 +187,7 @@ class StreamProcessor:
 
     async def _health(self, conn, tenant_id, record, event_ts):
         entity = record["entity"]
-        state = record["state"]
+        state = record["state"].title()
         reasons = json.dumps(record.get("reasons", []))
         previous = await conn.fetchrow(
             "SELECT state FROM health_current WHERE tenant_id=$1 AND entity=$2 FOR UPDATE",
