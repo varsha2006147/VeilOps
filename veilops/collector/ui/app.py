@@ -19,6 +19,7 @@ class UIContext:
     def __init__(self, cfg, pipeline, store, sources: dict[str, Any]) -> None:
         self.cfg, self.pipeline, self.store, self.sources = cfg, pipeline, store, sources
         self.resolver: Callable[[str], dict | None] | None = None    # set by Member B
+        self.topology_watcher = None
 
 
 def _ser(obj) -> dict:
@@ -62,6 +63,16 @@ def create_app(ctx: UIContext) -> FastAPI:
     @app.get("/local/windows")
     async def windows(limit: int = 100) -> list[dict]:
         return [_ser(w) for w in list(ctx.pipeline.recent_windows)[-limit:]][::-1]
+
+    @app.get("/local/topology")
+    async def topology() -> dict:
+        t = ctx.pipeline.bus.topology
+        w = ctx.topology_watcher
+        return {"version": t.version, "digest": t.digest, "source": t.source,
+                "nodes": [{"name": n, "kind": k} for n, k in sorted(t.nodes.items())],
+                "edges": [{"src": e.src, "src_kind": e.src_kind, "dst": e.dst, "dst_kind": e.dst_kind,
+                           "rel": e.rel} for e in t.edges],
+                "last_error": w.last_error if w else None}
 
     @app.get("/local/chaos")
     async def chaos_list() -> dict:

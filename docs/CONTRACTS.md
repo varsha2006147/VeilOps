@@ -36,3 +36,13 @@ OpenAPI at `cloud/api/openapi.json` (Member C publishes, Member D mocks).
 - `LocalSignal.raw_ids` point into the local `raw_events` table, so the Egress Proof Panel can show the
   source lines behind a payload in its side-by-side view. Never transmit them.
 - Topology (real names) for B to pseudonymize: `veilops.sim.TOPOLOGY` in demo; `topology.yaml` in production.
+
+## 5. Topology (A -> B)
+
+- `bus.topology` is a `veilops.collector.topology.Topology` with REAL names: `edges` of
+  `Edge(src, src_kind, dst, dst_kind, rel)`; kinds `host|service|link`; relations `runs_on|connects_via|depends_on`.
+- A loads it from `topology_file` (default `veilops/collector/topology.example.yaml`; falls back to the simulator's
+  graph when the sim source is on) and re-reads on change. Each change bumps `version` and sets `bus.topology_changed`.
+- B: `await bus.topology_changed.wait(); bus.topology_changed.clear()`, then pseudonymize every node with the SAME
+  HMAC used for metrics (host -> `h_`, service -> `svc_`, link -> `lnk_`) and send one `topology` record.
+- A bad file never breaks the collector: the last good graph is kept and the error shows in the local UI (Topology tab).

@@ -29,3 +29,12 @@ pytest -q
 ```
 Use the organizer stream instead: `STREAM_ENABLED=true STREAM_DRIVER=sse STREAM_URL=<url> python -m veilops.collector`
 (edit only `veilops/collector/stream_map.yaml` to map their field names).
+
+## Run the collector in Docker
+
+```bash
+docker build -f deploy/Dockerfile.collector -t veilops-collector .
+docker compose -f deploy/collector.compose.yml up --build   # acme :8100 (IN), globex :8101 (EU), sim :9000
+```
+At the event: `STREAM_URL=<organizer feed> docker compose -f deploy/collector.compose.yml up`.
+The image contains only `veilops/collector`, `veilops/schema` and `veilops/sim` — no cloud code ships to customers.
