@@ -1,0 +1,11 @@
+.sum-page { flex: 1; padding: 32px 48px; display: flex; flex-direction: column; gap: 28px; max-width: 1344px; width: 100%; margin: 0 auto; }
+.sum-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.gauge { background: var(--bg-2); padding: 22px 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gauge .nm { font-weight: 500; }
+.gauge .arc { transition: stroke-dasharray 1.4s cubic-bezier(.2, .7, .2, 1); }
+.counts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.counts > div { padding: 16px 0; display: flex; flex-direction: column; gap: 4px; }
+.counts b { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-hi); }
+.counts span { font-size: 12px; }
+.sum-foot { display: flex; gap: 22px; align-items: center; font-size: 12px; flex-wrap: wrap; }

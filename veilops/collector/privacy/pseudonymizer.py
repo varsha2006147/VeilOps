@@ -105,6 +105,11 @@ class PseudonymStore:
             ).fetchone()
         return (row[0], row[1]) if row else None
 
+    def all(self) -> "list[tuple[str, str, str]]":
+        with self._lock:
+            return [tuple(r) for r in self._conn.execute(
+                "SELECT pseudo, kind, real_value FROM pseudonym_map ORDER BY kind, real_value")]
+
     def count(self) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM pseudonym_map").fetchone()[0]
@@ -144,3 +149,6 @@ class Pseudonymizer:
 
     def resolve(self, pseudo: str) -> "tuple[str, str] | None":
         return self._store.resolve(pseudo)
+
+    def codes(self) -> "list[tuple[str, str, str]]":
+        return self._store.all()

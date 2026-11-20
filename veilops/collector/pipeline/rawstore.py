@@ -100,6 +100,11 @@ class RawStore:
         await self.db.commit()
         return cur.rowcount
 
+    async def recent_audit(self, limit: int = 100) -> list[dict]:
+        assert self.db
+        cur = await self.db.execute("SELECT ts,actor,action,detail FROM audit_log ORDER BY id DESC LIMIT ?", (limit,))
+        return [{"ts": r[0], "actor": r[1], "action": r[2], "detail": r[3]} for r in await cur.fetchall()]
+
     async def audit(self, actor: str, action: str, detail: str) -> None:
         assert self.db
         await self.db.execute("INSERT INTO audit_log(ts,actor,action,detail) VALUES(?,?,?,?)",

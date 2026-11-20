@@ -114,6 +114,21 @@ async def reject_action(action_id: UUID, request: Request):
     return await _decide_action(action_id, request, "reject")
 
 
+@router.get("/api/v1/actions")
+async def list_actions(request: Request, limit: int = 20):
+    """Recent actions for the dashboard (status follows pending -> approved -> delivered -> executed)."""
+    tenant = tenant_from_request(request)
+    async with request.app.state.db_pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
+            rows = await conn.fetch(
+                """SELECT action_id,collector_id,action_type,policy_ref,status,requested_by,approved_by,created_at,
+                          expires_at,result FROM actions WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT $2""",
+                tenant, max(1, min(limit, 200)))
+    return {"actions": [{**dict(r), "result": json.loads(r["result"]) if isinstance(r["result"], str) else r["result"]}
+                        for r in rows]}
+
+
 @router.get("/v1/actions")
 async def pull_actions(request: Request, after: UUID | None = None):
     body = await request.body()

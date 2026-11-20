@@ -14,6 +14,7 @@ from cloud.app.actions import router as actions_router
 from cloud.app.api import router as dashboard_router
 from cloud.app.auth import TenantJWTMiddleware
 from cloud.app.control import router as control_router
+from cloud.app.dashboard_auth import router as auth_router
 from cloud.app.crypto import ReceiptSigner, SecretBox
 from cloud.app.events import router as events_router
 from cloud.app.aiops.engine import aiops_loop
@@ -104,6 +105,7 @@ app = FastAPI(
 )
 app.include_router(ingest_router)
 app.include_router(control_router)
+app.include_router(auth_router)
 app.include_router(reconciliation_router)
 app.include_router(dashboard_router)
 app.include_router(judge_router)
@@ -114,7 +116,7 @@ app.add_middleware(TenantJWTMiddleware)
 # Dashboard dev server origin(s); comma-separated. Never "*": the dashboard sends credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()],
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174").split(",") if o.strip()],
     allow_methods=["GET", "POST", "PUT"], allow_headers=["Authorization", "Content-Type"],
     expose_headers=["Content-Disposition"],
 )

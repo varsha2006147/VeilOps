@@ -1,0 +1,23 @@
+.inc-page { flex: 1; display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+.inc-list { border-right: 1px solid var(--line); padding: 22px 12px; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+.inc-item { display: flex; flex-direction: column; gap: 3px; padding: 9px 10px; border-radius: 6px; }
+.inc-item:hover { background: var(--hover); }
+.inc-item.on { background: var(--bg-3); box-shadow: inset 2px 0 0 var(--text); }
+.inc-item .ttl { color: var(--text-2); font-size: 12.5px; line-height: 1.4; }
+.rec-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+.rec { padding: 26px 30px; display: flex; flex-direction: column; gap: 18px; border-right: 1px solid var(--line); }
+.rec-head { display: flex; align-items: flex-end; gap: 16px; justify-content: space-between; }
+.rank { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+.rank-row { display: grid; grid-template-columns: 140px 1fr 44px; gap: 12px; align-items: center; font-size: 12px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.bar span { display: block; height: 100%; border-radius: 2px; }
+.explain { padding: 26px 26px; display: flex; flex-direction: column; gap: 16px; background: var(--bg-2); }
+.explain h2 { margin: 0; font-size: 18px; font-weight: 500; letter-spacing: -0.015em; color: var(--text-hi); line-height: 1.35; }
+.explain .sum { margin: 0; color: var(--text-2); line-height: 1.7; }
+.ev { margin: 0; padding: 14px 0 0 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ev .mono { color: var(--text-3); }
+.fix { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--line-2); border-radius: 8px; }
+.fix b { font-weight: 500; color: var(--text-hi); }
+.steps { display: flex; gap: 4px; }
+.steps span { flex: 1; text-align: center; padding: 4px 0; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; color: var(--muted-2); }
+.steps span.on { color: var(--text); border-color: var(--line-3); background: var(--hover); }

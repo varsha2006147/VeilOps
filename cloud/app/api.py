@@ -334,3 +334,26 @@ async def recommendation_detail(recommendation_id: UUID, request: Request):
                 tenant, recommendation_id,
             )
     return {"recommendation": dict(row), "evidence_links": [dict(item) for item in links]}
+
+
+@router.post("/collectors/enrollment-tokens", status_code=201)
+async def create_enrollment_token(request: Request):
+    """Admin creates a one-time, 15-minute token to enroll a new collector into this tenant."""
+    import hashlib
+    import secrets
+    tenant = await require_role(request, {"tenant_admin", "approver"})
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    async with request.app.state.db_pool.acquire() as conn:
+        region = await conn.fetchval("SELECT home_region FROM tenants WHERE tenant_id=$1", tenant)
+        await conn.execute(
+            "INSERT INTO enrollment_tokens(token_hash,tenant_id,region,expires_at) VALUES($1,$2,$3,$4)",
+            hashlib.sha256(token.encode()).hexdigest(), tenant, region, expires)
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
+            await conn.execute(
+                """INSERT INTO audit_events(tenant_id,actor_id,action,resource_type,resource_id,details)
+                   VALUES($1,$2,'collector.enrollment_token_created','enrollment_token',NULL,$3::jsonb)""",
+                tenant, str(request.state.user_id), '{"expires_minutes": 15}')
+    # The plaintext token is shown once; only its SHA-256 is stored.
+    return {"enrollment_token": token, "region": region, "expires_at": expires.isoformat()}
