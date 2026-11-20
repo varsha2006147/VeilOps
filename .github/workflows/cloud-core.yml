@@ -1,4 +1,4 @@
-name: Cloud Core CI
+﻿name: Cloud Core CI
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
           cache: pip
           cache-dependency-path: cloud/requirements.txt
       - name: Install dependencies
-        run: python -m pip install -r cloud/requirements.txt
+        run: python -m pip install -r requirements.txt -r cloud/requirements.txt
       - name: Compile Cloud Core
         run: python -m compileall -q cloud
       - name: Run Cloud Core tests
