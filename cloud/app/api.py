@@ -264,6 +264,53 @@ async def incident_detail(incident_id: UUID, request: Request):
     return {"incident": dict(row), "evidence_links": [dict(item) for item in links]}
 
 
+@router.get("/incidents/{incident_id}/timeline")
+async def incident_timeline(incident_id: UUID, request: Request):
+    """Incident timeline with chronological alerts, root-cause candidate ranking, and evidence citations."""
+    tenant = tenant_from_request(request)
+    async with request.app.state.db_pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id',$1,true)", tenant)
+            incident = await conn.fetchrow(
+                """SELECT incident_id,title,severity,status,summary,root_cause_entity,
+                          root_cause_rule,root_cause_score,opened_at,updated_at,closed_at
+                   FROM incidents WHERE tenant_id=$1 AND incident_id=$2""",
+                tenant, incident_id,
+            )
+            if not incident:
+                raise HTTPException(404, detail={"code": "INCIDENT_NOT_FOUND"})
+
+            alerts_rows = await conn.fetch(
+                """SELECT alert_id,entity,rule,kind,severity,status,first_ts,last_ts,occurrences,context
+                   FROM alerts WHERE tenant_id=$1 AND incident_id=$2
+                   ORDER BY first_ts ASC""",
+                tenant, incident_id,
+            )
+
+            evidence_rows = await conn.fetch(
+                """SELECT id,evidence_number,evidence_type,reference,description,payload_id,created_at
+                   FROM evidence_links WHERE tenant_id=$1 AND incident_id=$2
+                   ORDER BY COALESCE(evidence_number, 0) ASC, created_at ASC""",
+                tenant, incident_id,
+            )
+
+            edges_rows = await conn.fetch(
+                """SELECT source_entity,target_entity,relation FROM topology_edges WHERE tenant_id=$1""",
+                tenant,
+            )
+
+    from cloud.app.aiops.rootcause import rank_root_cause
+    candidates = rank_root_cause([dict(a) for a in alerts_rows], [dict(e) for e in edges_rows])
+
+    return {
+        "incident": dict(incident),
+        "alerts": [dict(a) for a in alerts_rows],
+        "root_cause_ranking": candidates,
+        "evidence": [dict(e) for e in evidence_rows],
+    }
+
+
+
 @router.get("/recommendations/{recommendation_id}")
 async def recommendation_detail(recommendation_id: UUID, request: Request):
     tenant = tenant_from_request(request)
