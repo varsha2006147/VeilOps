@@ -14,3 +14,5 @@ hypothesis>=6.100
 psutil>=5.9
 icmplib>=3.0
 websockets>=12
+
+tzdata>=2024.1
