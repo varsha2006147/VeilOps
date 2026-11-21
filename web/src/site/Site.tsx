@@ -36,6 +36,15 @@ export function Overview() {
     return Object.entries(by).sort();
   }, [win]);
   const latest = (win ?? [])[0], lastRaw = (raw ?? [])[0];
+  // every metric per host, oldest -> newest, for the live machine panel
+  const machines = useMemo(() => {
+    const by: Record<string, Record<string, number[]>> = {};
+    [...(win ?? [])].reverse().forEach((w) => {
+      if (w.entity_kind !== "host") return;
+      ((by[w.entity] ??= {})[w.metric] ??= []).push(w.avg);
+    });
+    return Object.entries(by).sort();
+  }, [win]);
   return (
     <div className="split">
       <section className="page">
@@ -63,6 +72,27 @@ export function Overview() {
             <pre className="mono" style={{ margin: 0, fontSize: 11.5, whiteSpace: "pre-wrap", color: "var(--hi)", lineHeight: 1.6 }}>{latest ? JSON.stringify({ entity: codes[latest.entity] ?? "(code pending)", kind: latest.entity_kind, metric: latest.metric, window_s: latest.window_s, avg: +latest.avg.toFixed(2), max: +latest.max.toFixed(2), count: latest.count, event_ts: latest.event_ts }, null, 1) : "…"}</pre>
           </div>
         </div>
+        {machines.map(([name, m]) => (
+          <div key={name} className="box" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span className="h2">Live machine · {name}</span>
+              <span className="muted" style={{ fontSize: 12 }}>cloud sees it as <span className="mono">{codes[name] ?? "—"}</span> · 5-second averages</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
+              {([["cpu.util_pct", "CPU", "%"], ["mem.util_pct", "Memory", "%"], ["disk.util_pct", "Disk", "%"], ["net.bw_in_mbps", "Network in", " Mbps"]] as const).map(([k, label, unit]) => {
+                const v = m[k] ?? [];
+                const now = v.at(-1);
+                return (
+                  <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span className="t3" style={{ fontSize: 12 }}>{label}</span>
+                    <span style={{ fontSize: 24, color: "var(--hi)", letterSpacing: "-.5px" }}>{now == null ? "—" : `${now.toFixed(k === "net.bw_in_mbps" ? 2 : 1)}${unit}`}</span>
+                    <Spark values={v.slice(-24)} w={180} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         <span className="h2">Systems on this site</span>
         <div className="tbl box" style={{ padding: "4px 14px" }}>
           <div className="tr th" style={{ gridTemplateColumns: "150px 80px 150px 150px minmax(0,1fr)" }}><span>real name</span><span>kind</span><span>code the cloud sees</span><span>now</span><span>last 2 minutes</span></div>
