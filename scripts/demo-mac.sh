@@ -6,6 +6,7 @@
 #   bash scripts/demo-mac.sh restart   # start everything again WITHOUT wiping data
 #   bash scripts/demo-mac.sh stop      # stop everything, keep data
 #   bash scripts/demo-mac.sh status    # quick health check
+#   bash scripts/demo-mac.sh remote    # cloud ONLY, open to other laptops; prints the IP + a fresh token (no wipe)
 cd "$(dirname "$0")/.." || exit 1
 CLOUD="docker compose -f deploy/docker-compose.yml"
 SITE="docker compose -f deploy/collector.compose.yml"
@@ -86,6 +87,31 @@ restore)
 stop)
   pkill -f vite 2>/dev/null; $SITE stop; $CLOUD stop
   say "Stopped. Data kept. 'restart' brings it back, 'start' wipes to zero."
+  ;;
+remote)
+  docker info >/dev/null 2>&1 || fail "Docker Desktop is not running."
+  [ -f deploy/.env ] || python3 -m cloud.scripts.generate_local_secrets > deploy/.env
+  say "Stopping the collector on this Mac (the other laptop is the collector)"
+  $SITE down -v
+  say "Starting the cloud, open to the network"
+  $CLOUD up -d --force-recreate cloud-api postgres redis || fail "cloud did not start"
+  wait_cloud
+  $CLOUD ps cloud-api | grep -q "0.0.0.0:8000" || fail "cloud is not open to the network (expected 0.0.0.0:8000)"
+  say "Making sure the demo accounts exist"
+  for u in "operator@acme.test|Asha|t_acme|operator" "approver@acme.test|Ravi|t_acme|approver" "operator@globex.test|Mia|t_globex|operator"; do
+    IFS='|' read -r e n t r <<<"$u"
+    $CLOUD exec -T -e ADMIN_DATABASE_URL=$DB cloud-api python -m cloud.scripts.create_dashboard_user \
+      --email "$e" --name "$n" --tenant "$t" --role "$r" --password veilops-demo-1 >/dev/null || fail "could not create $e"
+  done
+  IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+  curl -sf "http://$IP:8000/health/ready" >/dev/null || fail "this Mac cannot reach itself on $IP:8000. Turn the Mac firewall off (System Settings > Network > Firewall)."
+  TOKEN=$($CLOUD exec -T cloud-api python -m cloud.scripts.create_enrollment_token --tenant t_acme --region in | tail -1 | tr -d '\r ')
+  pkill -f vite 2>/dev/null; (cd web && nohup npm run dev > /tmp/veilops-web-cloud.log 2>&1 &); sleep 5; open http://localhost:5173 2>/dev/null
+  say "CLOUD READY. On the collector laptop run (PowerShell, in the VeilOps folder):"
+  echo
+  echo "   powershell -ExecutionPolicy Bypass -File scripts\\collector-windows.ps1 $IP $TOKEN"
+  echo
+  echo "   (token works once, within 15 minutes)"
   ;;
 status)
   printf "cloud:     "; curl -s http://localhost:8000/health/ready || echo "DOWN"; echo
