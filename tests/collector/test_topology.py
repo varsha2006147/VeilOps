@@ -37,7 +37,7 @@ def test_example_file_and_graph_queries():
     path = os.path.join(os.path.dirname(__file__), "../../veilops/collector/topology.example.yaml")
     from veilops.collector.topology import Topology
     t = Topology(load_file(path))
-    assert t.nodes["core-sw1"] == "link" and len(t.edges) == 9
+    assert t.nodes["core-sw1"] == "link" and len(t.edges) == 10   # 9 site edges + the remediation sandbox
     # everything that is hurt if the core switch degrades: hosts behind it and the services on them
     assert {"app-01", "app-02", "db-01", "checkout", "auth-api"} <= t.downstream_of("core-sw1")
     assert t.neighbors("app-02") == {"checkout", "auth-api", "core-sw1"}

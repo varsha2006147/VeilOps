@@ -16,6 +16,9 @@ export default function Entity() {
   const related = (topo?.edges ?? []).filter((x: any) => x.src === code || x.dst === code);
   const alerts = (al?.alerts ?? []).filter((a: any) => a.entity === code);
   const trans: any[] = hist?.transitions ?? [];
+  const [incs] = usePoll<any>(() => cloud("/api/v1/incidents?limit=100"), 10000, [tick]);
+  const involved = (incs?.incidents ?? []).filter((i: any) => i.root_cause_entity === code || String(i.summary ?? "").includes(code));
+  const col = (fleet?.collectors ?? []).find((c: any) => c.collector_id === e?.collector_id);
   if (fleet && !e) return <section className="page"><span className="h">{code}</span><div className="empty">No entity with this code in this tenant.</div></section>;
   return (
     <div className="split">
@@ -38,6 +41,23 @@ export default function Entity() {
         </div>
       </section>
       <aside className="rail">
+        <span className="h2">About</span>
+        <div className="tbl">
+          {[["Code", code], ["Kind", kind], ["Health", `${e?.state ?? "—"} since ${hhmmss(e?.since)}`], ["Last data", hhmmss(e?.last_data_ts)],
+            ["Reported by", e?.collector_id], ["Region", String(col?.region ?? "—").toUpperCase()], ["Real name", "known only on the customer's collector"]].map(([k, v]) => (
+            <div key={k} className="tr" style={{ gridTemplateColumns: "100px minmax(0,1fr)" }}><span className="t3">{k}</span><span className={k === "Code" || k === "Reported by" ? "mono" : ""} style={{ fontSize: 12.5 }}>{v}</span></div>
+          ))}
+        </div>
+        <span className="h2">Incidents involving it</span>
+        <div className="tbl">
+          {involved.slice(0, 6).map((i: any) => (
+            <Link key={i.incident_id} to={`/incidents/${i.incident_id}`} className="tr click" style={{ gridTemplateColumns: "minmax(0,1fr) 64px" }}>
+              <span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: 12.5, color: "var(--hi)" }}>{i.title}</span><span className="muted" style={{ fontSize: 11 }}>{hhmmss(i.opened_at)} · {i.root_cause_entity === code ? "root cause" : "affected"}</span></span>
+              <span className={i.status === "open" ? "crit" : "muted"} style={{ textAlign: "right", fontSize: 12 }}>{i.status}</span>
+            </Link>
+          ))}
+          {!involved.length && <span className="muted">None so far.</span>}
+        </div>
         <span className="h2">Related entities</span>
         <div className="tbl">
           {related.map((r: any, k: number) => { const other = r.src === code ? r.dst : r.src; return (

@@ -10,3 +10,5 @@ edges:
   - "host:app-02 -> link:core-sw1 : connects_via"
   - "host:db-01 -> link:core-sw1 : connects_via"
   - "link:core-sw1 -> link:wan-1 : connects_via"
+  # Remediation sandbox: a real process the approved fixes act on (CPU runaway -> RESTART_SERVICE).
+  - "host:sandbox-app -> link:core-sw1 : connects_via"

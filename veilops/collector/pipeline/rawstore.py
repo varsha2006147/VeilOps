@@ -89,6 +89,11 @@ class RawStore:
         return [{"id": r[0], "source": r[1], "event_ts": r[2], "source_tz": r[3],
                  "raw": r[4] if reveal else mask(r[4]), "ingested_at": r[5]} for r in rows]
 
+    async def since(self, after_id: int, limit: int = 5000) -> list[tuple[int, str]]:
+        assert self.db
+        return [tuple(r) for r in await (await self.db.execute(
+            "SELECT id, raw FROM raw_events WHERE id > ? ORDER BY id LIMIT ?", (after_id, limit))).fetchall()]
+
     async def count(self) -> int:
         assert self.db
         return (await (await self.db.execute("SELECT count(*) FROM raw_events")).fetchone())[0]

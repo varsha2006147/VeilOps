@@ -44,6 +44,8 @@ services:
       INGEST_URL: ${INGEST_URL_IN:-https://in.ingest.veilops.local/v1}
       VEILOPS_ENROLLMENT_TOKEN: ${ENROLL_TOKEN_ACME:-}
       CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
+      HOST_ENABLED: ${HOST_ENABLED:-false}       # demo: only the simulated site + sandbox appear on the map
+      PROBES_ENABLED: ${PROBES_ENABLED:-false}
       DEMO_MODE: "1"
       SIM_CONTROL_URL: http://sim:9000
       SANDBOX_ENABLED: "true"

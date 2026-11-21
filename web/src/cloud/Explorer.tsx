@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { HEALTH, cloud, j, local, short } from "../api";
+import { HEALTH, ago, cloud, j, local, short } from "../api";
 import { usePoll, useLiveTick, useRange } from "../hooks";
 import { Area } from "../ui/charts";
 
@@ -21,6 +21,7 @@ export default function Explorer() {
   const [fleet] = usePoll<any>(() => cloud("/api/v1/fleet"), 5000, [tick]);
   const [topo] = usePoll<any>(() => cloud("/api/v1/topology"), 15000);
   const [inc] = usePoll<any>(() => cloud("/api/v1/incidents?status=open&limit=5"), 5000, [tick]);
+  const [slo] = usePoll<any>(() => cloud("/api/v1/slo"), 10000, [tick]);
   const [view, setView] = useState<"map" | "navigator" | "list">("map");
   const [sel, setSel] = useState<string | null>(null);
   const [latest, setLatest] = useState<Record<string, number | null>>({});
@@ -52,9 +53,19 @@ export default function Explorer() {
     return m;
   }, [al, inc]); // eslint-disable-line
 
+  const healthy = ents.filter((e) => e.state === "Excellent" || e.state === "Good").length;
+  const lastData = ents.map((e: any) => e.last_data_ts).filter(Boolean).sort().at(-1);
+  const colsOnline = (fleet?.collectors ?? []).filter((c: any) => Date.now() - +new Date(c.last_heartbeat) < 30e3).length;
   return (
     <div className="split">
       <section className="page">
+        <div className="kpi">
+          <div><span className="n" style={{ color: open.length ? "var(--crit)" : "var(--ok)" }}>{open.length}</span><span className="l">open incidents</span></div>
+          <div><span className="n">{healthy}<span className="muted" style={{ fontSize: 15 }}> / {ents.length}</span></span><span className="l">entities healthy</span></div>
+          <div><span className="n" style={{ color: colsOnline < (fleet?.collectors?.length ?? 0) ? "var(--warn)" : undefined }}>{colsOnline}<span className="muted" style={{ fontSize: 15 }}> / {fleet?.collectors?.length ?? 0}</span></span><span className="l">collectors online</span></div>
+          <div><span className="n">{lastData ? ago(lastData) : "—"}</span><span className="l">newest data</span></div>
+          <div><span className="n">{slo?.quality?.noise_reduction_pct != null ? `${slo.quality.noise_reduction_pct}%` : "—"}</span><span className="l">alert noise removed · {slo?.quality?.raw_alerts ?? 0} alerts → {slo?.quality?.incidents ?? 0} incidents</span></div>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="h">Service map</span>
           <span className="muted">{ents.length} entities · {topo?.edges?.length ?? 0} connections · names are codes; real names stay with the customer</span>

@@ -27,11 +27,11 @@ sources:
   sim:                      # SIMULATED (team) - rehearsal + Chaos tab
     enabled: ${SIM_ENABLED:-true}
     interval_s: 1
-  host:
-    enabled: true
+  host:                     # REAL - this machine's CPU/mem/disk/net (off in the two-laptop demo for a clean map)
+    enabled: ${HOST_ENABLED:-true}
     interval_s: 1
-  probes:
-    enabled: true
+  probes:                   # REAL - ICMP/TCP probes to public DNS
+    enabled: ${PROBES_ENABLED:-true}
     interval_s: 2
     count: 3
     targets:

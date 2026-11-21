@@ -147,15 +147,36 @@ def create_app(ctx: UIContext) -> FastAPI:
             raise HTTPException(404, "unknown pseudonym")
         return hit
 
+    scan = {"last_id": 0, "count": 0}
+
+    async def _secrets_seen() -> int:
+        """Raw events on this machine that contained a secret (password, token, key).
+        Raw text never leaves; this counts what the redactor would have scrubbed."""
+        from veilops.collector.privacy.redactor import redact_text
+        if not hasattr(ctx.store, "since"):
+            return 0
+        for _ in range(20):                      # catch up in batches; later calls only see new rows
+            rows = await ctx.store.since(scan["last_id"], 10000)
+            if not rows:
+                break
+            scan["count"] += sum(1 for _, raw in rows if raw and redact_text(raw) != raw)
+            scan["last_id"] = rows[-1][0]
+        return scan["count"]
+
     @app.get("/local/egress")
     @app.get("/local/egress/proof")
     @app.get("/api/egress-proof")
     async def egress_proof() -> dict:
+        snap = None
         if getattr(ctx, "proof_service", None) is not None:
-            return await ctx.proof_service.get_snapshot()
-        if getattr(ctx, "ledger", None) is not None:
+            snap = await ctx.proof_service.get_snapshot()
+        elif getattr(ctx, "ledger", None) is not None:
             from veilops.collector.transport.proof import build_egress_proof_snapshot
-            return await build_egress_proof_snapshot(ctx.ledger)
+            snap = await build_egress_proof_snapshot(ctx.ledger)
+        if snap is not None:
+            red = snap.setdefault("redaction_summary", {})
+            red["secrets_scrubbed"] = max(int(red.get("secrets_scrubbed") or 0), await _secrets_seen())
+            return snap
         return {
             "policy_version": "1.0",
             "policy_hash": "sha256:" + "0" * 64,
