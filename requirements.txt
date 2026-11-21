@@ -16,3 +16,5 @@ icmplib>=3.0
 websockets>=12
 
 tzdata>=2024.1
+argon2-cffi>=23.1
+PyJWT>=2.8
