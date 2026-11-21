@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 
 from ..contracts import RawEvent, utcnow
@@ -39,10 +40,20 @@ class ProbeSource(Source):
     def __init__(self, spec: dict, source_tz: str) -> None:
         super().__init__()
         self.targets = spec.get("targets", [])      # [{name, host, port?}]
+        # Live override without editing YAML, e.g. PROBE_TARGETS="atria-website=atria.edu:443;college-dns=8.8.8.8:53"
+        env = os.environ.get("PROBE_TARGETS", "").strip()
+        if env:
+            self.targets = []
+            for item in env.replace(",", ";").split(";"):
+                if "=" not in item:
+                    continue
+                name, hp = item.split("=", 1)
+                host, _, port = hp.strip().partition(":")
+                self.targets.append({"name": name.strip(), "host": host, "port": int(port or 443)})
         self.interval = float(spec.get("interval_s", 2))
         self.count = int(spec.get("count", 5))
         self.timeout = float(spec.get("timeout_s", 1))
-        self.mode = spec.get("mode", "auto")         # auto | icmp | tcp
+        self.mode = os.environ.get("PROBE_MODE") or spec.get("mode", "auto")   # auto | icmp | tcp
         self.tz = source_tz
 
     async def _one(self, t: dict) -> tuple[float | None, float]:
